@@ -2,9 +2,9 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V4.3
-Current Phase: TASK-008C Implemented / Automated PASS / Human Grid Lane Verification Required
-Current Task: TASK-008C - Obstacle-safe Manhattan Grid Reconstruction
+Current Version: V5
+Current Phase: TASK-009 Implemented / Automated PASS / Human Factory Flow Verification Required
+Current Task: TASK-009 - Task & Material Flow
 
 ## Final Goal
 
@@ -282,4 +282,43 @@ Evidence:
 - `evidence/v4_3_grid_lane_debug.png`
 - `evidence/v4_3_grid_lane_stress.txt`
 
-TASK-008C IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN GRID LANE VERIFICATION REQUIRED. TASK-009 이상은 시작하지 않았다.
+TASK-008C COMPLETE / HUMAN GRID LANE VERIFICATION PASS.
+
+## TASK-009 Result
+
+- V4.3 Human Grid Lane Verification: PASS
+- 8 obstacle-safe WorkStation service points
+- Demo Flow A: `IN_A -> PROC_A -> QC_A -> OUT_A`
+- Demo Flow B: `IN_B -> PROC_B -> BUFFER_B -> OUT_B`
+- MaterialTask / MaterialLoad / RobotWorkState / TaskEvent Domain 구현
+- Strict lifecycle 및 invalid transition 차단
+- 2초 Pickup / 2초 Drop timer
+- Queue target 6 / maximum active 10 / deterministic continuous generator
+- 단순 최근접 reachable-source + stable-order assignment
+- 기본 실행을 V5 task-driven factory로 전환
+- 기존 V4 random traffic은 `--traffic-demo`로 보존
+- compact task/robot UI panel과 carrying/picking/dropping marker
+- `--headless-factory`, `--render-factory`, `--render-factory-debug`
+- Full V1~V5 regression: 65 PASS
+
+16 robots / 300 seconds:
+
+- tasks created/completed: 55 / 46
+- queued/active/idle robots: 6 / 3 / 11
+- robot utilization: 0.2710
+- average task cycle time: 50.066 seconds
+- average pickup wait: 4.735 seconds
+- loads in transit: 2
+- completed checkpoint trend at 100/200/300 seconds: 16 / 32 / 45
+- failed tasks: 0
+- lost loads / duplicate ownership: 0 / 0
+- pickup-before-arrival / drop-before-arrival: 0 / 0
+- collisions/head-on/deadlocks/obstacle penetrations: 0
+
+Evidence:
+
+- `evidence/v5_factory_task_flow.png`
+- `evidence/v5_factory_task_debug.png`
+- `evidence/v5_factory_stress.txt`
+
+TASK-009 IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN FACTORY FLOW VERIFICATION REQUIRED. TASK-010 이상은 시작하지 않았다.

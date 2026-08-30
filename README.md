@@ -23,7 +23,7 @@ V1에서 구현된 것:
 현재 구현 결과:
 
 ```text
-TASK-008C / V4.3 Obstacle-safe Manhattan Grid 구현 / Human 확인 필요
+TASK-009 / V5 Task-driven Factory Material Flow 구현 / Human 확인 필요
 ```
 
 입니다.
@@ -135,6 +135,22 @@ V4 화면 키:
 - `I`: Entity ID 표시 전환
 - `D`: LaneNode, Machine bounds, 7px clearance debug overlay 전환
 - `Q` 또는 `Esc`: 종료
+
+기본 실행은 V5 Factory Task Flow입니다. 16대 Robot 중 최대 10대가 deterministic Task를 수행하고 나머지는 IDLE pool로 유지됩니다.
+
+```bash
+python app.py
+```
+
+V5 headless Factory acceptance와 Evidence:
+
+```bash
+python app.py --headless-factory 300 --entities 16 --seed 1234
+python app.py --render-factory evidence/v5_factory_task_flow.png --motion-time 60 --entities 16
+python app.py --render-factory-debug evidence/v5_factory_task_debug.png --motion-time 60 --entities 16
+```
+
+기존 V4 random traffic demo는 `python app.py --traffic-demo`로 보존됩니다.
 
 GUI 없이 5초간 motion을 실행하고 위치를 출력:
 

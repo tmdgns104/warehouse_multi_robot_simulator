@@ -1,6 +1,6 @@
 # TASK-008C - V4.3 Obstacle-safe Manhattan Grid
 
-Status: IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN GRID LANE VERIFICATION REQUIRED
+Status: COMPLETE / HUMAN GRID LANE VERIFICATION PASS
 
 ## Goal
 
@@ -55,4 +55,4 @@ Candidate lines are split at obstacle intervals rather than deleting an entire a
 - `evidence/v4_3_grid_lane_debug.png`
 - `evidence/v4_3_grid_lane_stress.txt`
 
-No commit or push was made. TASK-009 was not started.
+Human verified the pygame Manhattan grid and approved progression to TASK-009.

@@ -15,6 +15,17 @@ from .reference_traffic_scenario import (
     DEFAULT_ENTITY_COUNT,
     create_reference_traffic_scenario,
 )
+from .factory import FactoryConfig, FactoryEngine, FactoryMetrics, FactoryTaskGenerator
+from .reference_factory_scenario import create_reference_factory_scenario
+from .task_manager import (
+    FactoryTaskManager,
+    LoadState,
+    MaterialLoad,
+    MaterialTask,
+    RobotWorkState,
+    TaskState,
+    WorkStation,
+)
 
 __all__ = [
     "CellType",
@@ -42,4 +53,16 @@ __all__ = [
     "RouteCostConfig",
     "TrafficZone",
     "traffic_astar",
+    "FactoryConfig",
+    "FactoryEngine",
+    "FactoryMetrics",
+    "FactoryTaskGenerator",
+    "FactoryTaskManager",
+    "LoadState",
+    "MaterialLoad",
+    "MaterialTask",
+    "RobotWorkState",
+    "TaskState",
+    "WorkStation",
+    "create_reference_factory_scenario",
 ]

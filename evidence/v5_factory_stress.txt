@@ -1,0 +1,22 @@
+V5 task-driven factory stress verification
+seed=1234 entities=16 simulated_seconds=300
+
+Factory configuration:
+pickup_duration=2.0 drop_duration=2.0 queue_target=6 max_active_tasks=10
+flows=IN_A>PROC_A>QC_A>OUT_A,IN_B>PROC_B>BUFFER_B>OUT_B
+
+Factory metrics:
+tasks_created=55 tasks_completed=46 tasks_active=3 tasks_queued=6
+robot_utilization=0.2710 idle_robots=11 loads_in_transit=2 failed_tasks=0
+average_task_cycle_time=50.066 average_pickup_wait=4.735
+completed_checkpoint_100_200_300=16,32,45
+
+Integrity and lifecycle:
+lost_loads=0 duplicate_load_ownership=0
+pickup_before_source_arrival=0 drop_before_destination_arrival=0
+completed_tasks_increase=true continuous_generation=true
+
+Traffic safety:
+collisions=0 head_on=0 deadlocks=0 obstacle_penetrations=0
+
+Automated tests: 65 passed

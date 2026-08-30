@@ -9,6 +9,7 @@ from .facility_layout import FacilityLayout, NetworkSegment
 from .lane_graph import LaneGraph
 from .motion import MotionEngine, MotionState
 from .render_plan import DrawCommand, Primitive, build_render_plan
+from .task_manager import RobotWorkState
 from .lane_safety import (
     driving_obstacles,
     machine_obstacles,
@@ -35,6 +36,22 @@ def motion_render_plan(engine: MotionEngine) -> tuple[DrawCommand, ...]:
         }[entity.shape.value]
         outline = (220, 38, 38) if entity.state == MotionState.WAITING else (65, 65, 65)
         commands.append(DrawCommand(primitive, points, entity.color, width=2 if entity.state == MotionState.WAITING else 1, outline=outline))
+    return tuple(commands)
+
+
+def factory_status_render_plan(engine) -> tuple[DrawCommand, ...]:
+    """Small robot-local markers that preserve the reference visual scale."""
+    if not hasattr(engine, "work_states"):
+        return ()
+    commands = []
+    for entity in engine.entities:
+        state = engine.work_states[entity.id]
+        x, y = entity.position(engine.graph)
+        if state == RobotWorkState.CARRYING:
+            commands.append(DrawCommand(Primitive.RECT, (x - 2.5, y - 2.5, 5, 5), (250, 224, 82), outline=(78, 63, 28)))
+        elif state in (RobotWorkState.PICKING, RobotWorkState.DROPPING):
+            color = (245, 157, 52) if state == RobotWorkState.PICKING else (150, 79, 190)
+            commands.append(DrawCommand(Primitive.CIRCLE, (x - 6.5, y - 6.5, 13, 13), color, outline=(55, 55, 55)))
     return tuple(commands)
 
 
@@ -79,6 +96,45 @@ def render_motion_with_pillow(layout: FacilityLayout, engine: MotionEngine, outp
     )
     _draw_pillow_commands(draw, base, sx, sy)
     _draw_pillow_commands(draw, motion_render_plan(engine), sx, sy)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    image.save(output)
+    return output
+
+
+def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, size=(1280, 720), debug=False) -> Path:
+    """Render task-driven V5 evidence including compact metrics and load state."""
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGB", size, (30, 30, 30))
+    draw = ImageDraw.Draw(image)
+    sx, sy = size[0] / layout.design_width, size[1] / layout.design_height
+    base = build_render_plan(layout, reference_render_segments(layout, engine.graph), False)
+    _draw_pillow_commands(draw, base, sx, sy)
+    _draw_pillow_commands(draw, motion_render_plan(engine), sx, sy)
+    _draw_pillow_commands(draw, factory_status_render_plan(engine), sx, sy)
+    metrics = engine.factory_metrics
+    lines = (
+        "V5 FACTORY FLOW",
+        f"QUEUE       {metrics.tasks_queued}",
+        f"ACTIVE      {metrics.tasks_active}",
+        f"COMPLETED   {metrics.tasks_completed}",
+        f"IDLE ROBOTS {metrics.idle_robot_count}",
+        f"LOADS MOVE  {metrics.loads_in_transit}",
+    )
+    for index, line in enumerate(lines):
+        draw.text((995, 74 + index * 18), line, fill=(35, 35, 35))
+    robot_y = 205
+    for entity in engine.entities[:12]:
+        task_id = engine.robot_tasks[entity.id] or "-"
+        text = f"{entity.id} {engine.work_states[entity.id].value:<10} {task_id}"
+        draw.text((995, robot_y), text, fill=(45, 45, 45))
+        robot_y += 16
+    if debug:
+        for station in engine.stations.values():
+            node = engine.graph.node(station.service_node_id)
+            radius = 4
+            draw.ellipse((node.x - radius, node.y - radius, node.x + radius, node.y + radius), fill=(255, 165, 0), outline=(50, 50, 50))
+            draw.text((node.x + 6, node.y - 9), station.id, fill=(35, 35, 35))
     output.parent.mkdir(parents=True, exist_ok=True)
     image.save(output)
     return output
@@ -133,6 +189,7 @@ class ReferenceLayoutUI:
                     commands.append(DrawCommand(Primitive.LINE, (source.x, source.y, target.x, target.y), entity.color, 2.5))
         if self.engine is not None:
             commands.extend(motion_render_plan(self.engine))
+            commands.extend(factory_status_render_plan(self.engine))
         if self.show_reservations and self.engine is not None and hasattr(self.engine, "controller"):
             controller = self.engine.controller
             for edge_id in controller.edge_reservations:
@@ -189,6 +246,29 @@ class ReferenceLayoutUI:
                     (round(ox + node.x * scale), round(oy + node.y * scale)),
                     max(2, round(2 * scale)),
                 )
+        if self.engine is not None and hasattr(self.engine, "factory_metrics"):
+            font = pygame.font.SysFont("consolas", max(9, round(12 * scale)))
+            metrics = self.engine.factory_metrics
+            panel_lines = (
+                "V5 FACTORY FLOW",
+                f"QUEUE       {metrics.tasks_queued}",
+                f"ACTIVE      {metrics.tasks_active}",
+                f"COMPLETED   {metrics.tasks_completed}",
+                f"IDLE ROBOTS {metrics.idle_robot_count}",
+                f"LOADS MOVE  {metrics.loads_in_transit}",
+            )
+            panel_x = round(ox + 990 * scale)
+            panel_y = round(oy + 72 * scale)
+            for index, line in enumerate(panel_lines):
+                label = font.render(line, True, (35, 35, 35))
+                self.screen.blit(label, (panel_x, panel_y + index * max(14, round(18 * scale))))
+            robot_y = panel_y + max(105, round(125 * scale))
+            for entity in self.engine.entities[:12]:
+                task_id = self.engine.robot_tasks[entity.id] or "-"
+                line = f"{entity.id} {self.engine.work_states[entity.id].value:<10} {task_id}"
+                label = font.render(line, True, (45, 45, 45))
+                self.screen.blit(label, (panel_x, robot_y))
+                robot_y += max(12, round(16 * scale))
         pygame.display.flip()
 
     def run(self) -> None:

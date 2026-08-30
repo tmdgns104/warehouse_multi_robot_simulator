@@ -312,6 +312,22 @@ DROP
 COMPLETED
 ```
 
+#### V5 Implemented Boundary
+
+```text
+Deterministic Material Flow
+        ↓ queue target 6
+FactoryTaskManager / MaterialTask / MaterialLoad
+        ↓ nearest reachable source, stable order
+RobotWorkState (IDLE / TO_PICKUP / PICKING / CARRYING / DROPPING)
+        ↓ safe service LaneNode goal
+TrafficMotionEngine(looping=False)
+        ↓ predictive reservation / congestion-aware route / speed control
+Canonical Safe LaneGraph
+```
+
+Task state와 Traffic `MotionState`는 분리한다. 2초 Pickup/Drop 처리 중에는 Robot이 service node에 머물며 작업 시간은 traffic waiting으로 집계하지 않는다. 기본 최대 active task는 10으로 제한해 16대 중 IDLE pool을 유지한다. 배차는 source까지 route length와 stable robot order만 사용하는 V5 deterministic policy이며 V6의 fleet-wide optimization을 선행하지 않는다.
+
 ### 4.6 Fleet Manager
 
 Fleet Manager는 `Agent -> Task -> Route -> Traffic Permission`을 연결한다.

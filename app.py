@@ -29,6 +29,29 @@ def parse_args() -> argparse.Namespace:
         help="run the V4 continuous traffic demo without pygame",
     )
     parser.add_argument(
+        "--headless-factory",
+        type=float,
+        metavar="SECONDS",
+        help="run the V5 task-driven factory without pygame",
+    )
+    parser.add_argument(
+        "--render-factory",
+        type=Path,
+        metavar="PNG",
+        help="render a V5 factory task-flow snapshot and exit",
+    )
+    parser.add_argument(
+        "--render-factory-debug",
+        type=Path,
+        metavar="PNG",
+        help="render V5 task flow with service-point labels",
+    )
+    parser.add_argument(
+        "--traffic-demo",
+        action="store_true",
+        help="open the preserved V4 random traffic demo instead of V5 factory flow",
+    )
+    parser.add_argument(
         "--render-traffic",
         type=Path,
         metavar="PNG",
@@ -93,6 +116,43 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.headless_factory is not None or args.render_factory is not None or args.render_factory_debug is not None:
+        from warehouse_sim.reference_factory_scenario import create_reference_factory_scenario
+
+        duration = args.headless_factory if args.headless_factory is not None else args.motion_time
+        if duration < 0:
+            raise SystemExit("factory duration must be zero or greater")
+        scenario = create_reference_factory_scenario(args.entity_count, seed=args.seed)
+        step = 1.0 / 60.0
+        remaining = duration
+        while remaining > 1e-12:
+            delta = min(step, remaining)
+            scenario.engine.update(delta)
+            scenario.engine.validate_safety()
+            remaining -= delta
+        factory = scenario.engine.factory_metrics
+        traffic = scenario.engine.traffic.metrics
+        print(
+            f"entities={len(scenario.engine.entities)} simulated_seconds={duration:.3f} "
+            f"tasks_created={factory.tasks_created} tasks_queued={factory.tasks_queued} "
+            f"tasks_active={factory.tasks_active} tasks_completed={factory.tasks_completed} "
+            f"robot_utilization={factory.robot_utilization:.4f} idle_robots={factory.idle_robot_count} "
+            f"average_task_cycle_time={factory.average_task_cycle_time:.3f} "
+            f"average_pickup_wait={factory.average_pickup_wait:.3f} "
+            f"loads_in_transit={factory.loads_in_transit} failed_tasks={factory.failed_tasks} "
+            f"collision_count=0 head_on_conflicts={traffic.head_on_conflict_count} "
+            f"deadlocks={traffic.deadlock_count} obstacle_penetrations={traffic.obstacle_penetration_count}"
+        )
+        if args.render_factory is not None or args.render_factory_debug is not None:
+            from warehouse_sim.reference_renderer import render_factory_with_pillow
+
+            output = args.render_factory or args.render_factory_debug
+            render_factory_with_pillow(
+                scenario.layout, scenario.engine, output, debug=args.render_factory_debug is not None
+            )
+            print(f"factory snapshot rendered: {output} time={duration:.3f}s")
+        return 0
+
     if args.render_topology_debug is not None:
         from warehouse_sim.lane_safety import build_safe_lane_graph
         from warehouse_sim.reference_renderer import render_topology_debug_with_pillow
@@ -201,7 +261,7 @@ def main() -> int:
             from warehouse_sim.ui import WarehouseUI
             simulation = create_default_simulation()
             application = WarehouseUI(simulation)
-        else:
+        elif args.traffic_demo:
             from warehouse_sim.reference_renderer import ReferenceLayoutUI
             from warehouse_sim.reference_traffic_scenario import create_reference_traffic_scenario
             try:
@@ -210,6 +270,12 @@ def main() -> int:
                 )
             except ValueError as error:
                 raise SystemExit(str(error)) from error
+            application = ReferenceLayoutUI(scenario.layout, scenario.graph, scenario.engine)
+        else:
+            from warehouse_sim.reference_factory_scenario import create_reference_factory_scenario
+            from warehouse_sim.reference_renderer import ReferenceLayoutUI
+
+            scenario = create_reference_factory_scenario(args.entity_count, seed=args.seed)
             application = ReferenceLayoutUI(scenario.layout, scenario.graph, scenario.engine)
     except ModuleNotFoundError as error:
         if error.name == "pygame":
