@@ -2,9 +2,9 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V3
-Current Phase: V3 Implemented / Human Motion Verification Required
-Current Task: TASK-007 - Lane Graph + Continuous Motion Complete
+Current Version: V4
+Current Phase: V4 Implemented / Human Traffic Verification Required
+Current Task: TASK-008 - Multi-Agent Traffic Control Complete
 
 ## Final Goal
 
@@ -108,6 +108,37 @@ V2 is COMPLETE. TASK-007 implementation is COMPLETE and Human Motion Verificatio
 - V3 demo 5-second headless snapshot: PASS
 - V3 demo 60-second arrival (5/5 ARRIVED): PASS
 - Pillow V3 Evidence rendering: PASS
-- pygame continuous-motion verification: HUMAN REQUIRED
+- pygame continuous-motion verification: PASS (Human verification)
 
-TASK-008 이상은 시작하지 않았다.
+V3 is COMPLETE and Human Motion Verification is PASS.
+
+## TASK-008 Result
+
+- Default 16 entities; configurable from 1 to 64
+- Seeded scenario generation with unique starts and varied goals/speeds/shapes
+- Continuous arrival → new LaneNode goal → route → motion loop
+- Central TrafficController separated from TrafficMotionEngine
+- Exclusive destination Node and narrow Edge reservations
+- Same-node, same-edge and head-on conflict prevention
+- Longest waiting_count priority, stable creation-order tie break
+- WAITING state, waiting time/count and blocked warning events
+- Limited deterministic adjacent-goal recovery after 10-second block warning
+- Runtime traffic metrics and debug rendering toggles
+- V4 Evidence: `evidence/v4_traffic.png`
+- Stress Evidence: `evidence/v4_traffic_stress.txt`
+
+## V4 Verification
+
+- Python compile/import: PASS
+- V1/V2/V3 regression + V4 tests: 42 PASS
+- Node/edge/head-on/release/priority/waiting tests: PASS
+- Seed/16-entity/goal reassignment/continuous-operation tests: PASS
+- 16 entities / 120 simulated seconds: PASS
+- Completed trips: 97
+- Reservation denials handled: 44,745
+- Waiting events: 151
+- Limited recoveries: 31
+- Collision count: 0
+- pygame continuous traffic verification: HUMAN REQUIRED
+
+TASK-009 이상은 시작하지 않았다.

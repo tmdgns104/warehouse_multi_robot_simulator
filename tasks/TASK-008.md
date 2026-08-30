@@ -1,6 +1,6 @@
 # TASK-008 - V4 Multi-Agent Traffic Control
 
-Status: PLANNED
+Status: IMPLEMENTED / HUMAN TRAFFIC VERIFICATION REQUIRED
 
 ## Goal
 
@@ -30,3 +30,19 @@ Status: PLANNED
 - 교차로 Reservation Test PASS
 - 장기 대기 Event 발생 검증
 - 10+ Agent Scenario가 충돌 없이 실행
+
+## Implementation Result
+
+- 기본 16개, 옵션 1~64개 deterministic Entity Scenario
+- 중앙 `TrafficController`의 Node/Edge reservation
+- 동일 Node, same-edge, head-on 진입 방지
+- waiting_count 우선, stable creation order tie-break
+- WAITING 상태와 blocked warning event
+- 도착 후 seed 기반 LaneNode goal 재할당
+- 10초 장기 대기 시 빈 인접 Node를 사용하는 제한적 demo recovery
+- moving/waiting/completed/conflict/waiting-event metrics
+- V1~V3 regression 포함 42 tests passing
+- 16 Entity / 120 simulated seconds stress: 97 completed trips, collision 0
+- `evidence/v4_traffic.png`, `evidence/v4_traffic_stress.txt`
+
+Human이 pygame에서 지속 운행과 traffic waiting 표현을 확인해야 한다.

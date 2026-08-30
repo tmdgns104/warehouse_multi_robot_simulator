@@ -4,7 +4,7 @@ Reference 영상의 2D 자동화/물류 시뮬레이션 화면과 동작을 단�
 
 ## 현재 상태
 
-현재 V2 Layout Reconstruction은 Human Verification까지 완료되었고, V3 Lane Graph + Continuous Motion이 구현되어 Human Motion Verification을 기다리고 있습니다.
+V2와 V3는 Human Verification까지 완료되었습니다. 현재 V4 Multi-Agent Traffic Control이 구현되어 Human Traffic Verification을 기다리고 있습니다.
 
 V1에서 구현된 것:
 
@@ -23,7 +23,7 @@ V1에서 구현된 것:
 현재 구현 결과:
 
 ```text
-TASK-007 / V3 Lane Graph + Continuous Motion 구현 완료
+TASK-008 / V4 Multi-Agent Traffic Control 구현 완료
 ```
 
 입니다.
@@ -74,8 +74,8 @@ Digital Twin Bridge
 |---|---|
 | V1 | Core Algorithm Prototype ✅ |
 | V2 | Video Layout Reconstruction ✅ |
-| V3 | Lane Graph + Continuous Motion ✅ (움직임 확인 필요) |
-| V4 | Multi-Agent Traffic Control |
+| V3 | Lane Graph + Continuous Motion ✅ |
+| V4 | Multi-Agent Traffic Control ✅ (화면 확인 필요) |
 | V5 | Task & Material Flow |
 | V6 | Fleet Management |
 | V7 | Video-like Digital Twin UI |
@@ -111,9 +111,9 @@ reference/warehouse_reference.mp4
 
 자세한 기준은 `VIDEO_ANALYSIS.md`에 기록되어 있습니다.
 
-## V3 실행
+## V4 실행
 
-기본 실행은 V2 Facility 위에서 5개 Entity가 Lane Graph를 따라 연속 이동하는 V3 Demo를 표시합니다.
+기본 실행은 V2 Facility 위에서 16개 Entity가 reservation 기반 traffic control을 사용하며 계속 이동하는 V4 Demo를 표시합니다. 도착한 Entity에는 seed 기반 새 LaneNode goal이 자동 할당됩니다.
 
 ### Linux / WSL
 
@@ -125,18 +125,39 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-V3 화면 키:
+V4 화면 키:
 
 - `Space`: 이동 Pause/Start
 - `R`: scenario Reset
 - `N`: LaneNode 표시 전환
 - `P`: 계획 route 표시 전환
+- `T`: Edge reservation 표시 전환
+- `I`: Entity ID 표시 전환
 - `Q` 또는 `Esc`: 종료
 
 GUI 없이 5초간 motion을 실행하고 위치를 출력:
 
 ```bash
 python app.py --headless-motion 5
+```
+
+V4 장시간 traffic 검증:
+
+```bash
+python app.py --headless-traffic 120 --entities 16 --seed 1234
+```
+
+Entity 수 변경과 one-shot 실행:
+
+```bash
+python app.py --entities 24
+python app.py --entities 16 --one-shot
+```
+
+V4 Evidence 생성:
+
+```bash
+python app.py --render-traffic evidence/v4_traffic.png --motion-time 30 --entities 16
 ```
 
 V3 Motion Evidence 생성:
@@ -179,7 +200,7 @@ python app.py --headless-ticks 100
 python -m pytest -q
 ```
 
-## V3 Graph/Motion 구조
+## V4 Traffic 구조
 
 ```text
 src/warehouse_sim/
@@ -191,6 +212,9 @@ src/warehouse_sim/
 ├── graph_planner.py          # Lane Graph A*
 ├── motion.py                 # Entity progress와 update(delta_time)
 ├── reference_motion_scenario.py # 5개 Entity V3 demo
+├── traffic.py               # 중앙 Node/Edge reservation controller
+├── traffic_simulation.py    # priority, WAITING, 지속 운행과 metrics
+├── reference_traffic_scenario.py # seed 기반 기본 16 Entity demo
 ├── map.py
 ├── robot.py
 ├── planner.py
@@ -200,13 +224,13 @@ src/warehouse_sim/
 └── ui.py
 ```
 
-V2 `NetworkSegment`의 교차점이 LaneNode가 되고, 분할된 선 조각이 LaneEdge가 됩니다. 같은 Graph edge를 Renderer가 다시 Network로 그리므로 이동 좌표와 표시 좌표가 일치합니다. Traffic reservation과 충돌 우선순위는 V4 범위이므로 아직 포함하지 않습니다.
+V2 `NetworkSegment`의 교차점이 LaneNode가 되고 분할된 선 조각이 LaneEdge가 됩니다. V4에서는 TrafficController가 다음 Edge와 목적 Node를 원자적으로 예약합니다. 오래 기다린 Entity가 우선이며 동률은 생성 순서로 결정됩니다. 완전한 MAPF/deadlock solver는 포함하지 않습니다.
 
 기존 코드를 무조건 삭제하고 새로 만드는 것이 아니라, V1의 검증된 알고리즘과 테스트를 보존하면서 단계적으로 Refactor합니다.
 
 ## Visual Evidence
 
-V2 화면은 `evidence/v2_reference_layout.png`, V3의 5초 motion snapshot은 `evidence/v3_lane_motion.png`에서 확인할 수 있습니다. 연속성 자체는 `tests/test_motion.py`의 FPS 독립성, 보간, edge transition 테스트와 `--headless-motion`으로 검증합니다.
+V2 화면은 `evidence/v2_reference_layout.png`, V3 motion은 `evidence/v3_lane_motion.png`, V4 16-entity traffic은 `evidence/v4_traffic.png`에서 확인할 수 있습니다. 장시간 안전성은 `--headless-traffic`과 `tests/test_traffic.py`로 검증합니다.
 
 ## 최종 프로젝트 정의
 

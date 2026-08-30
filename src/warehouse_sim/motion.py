@@ -13,7 +13,9 @@ from .lane_graph import LaneGraph
 
 class MotionState(str, Enum):
     IDLE = "IDLE"
+    PLANNING = "PLANNING"
     MOVING = "MOVING"
+    WAITING = "WAITING"
     ARRIVED = "ARRIVED"
     NO_ROUTE = "NO_ROUTE"
 
@@ -33,6 +35,11 @@ class LaneMobileEntity:
     current_edge: Optional[str] = None
     progress: float = 0.0
     state: MotionState = MotionState.IDLE
+    waiting_count: int = 0
+    waiting_time: float = 0.0
+    completed_trips: int = 0
+    stable_order: int = 0
+    recent_goals: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.speed <= 0:

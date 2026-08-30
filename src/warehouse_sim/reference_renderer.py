@@ -7,7 +7,7 @@ from typing import Iterable, Tuple
 
 from .facility_layout import FacilityLayout
 from .lane_graph import LaneGraph
-from .motion import MotionEngine
+from .motion import MotionEngine, MotionState
 from .render_plan import DrawCommand, Primitive, build_render_plan
 
 
@@ -26,7 +26,8 @@ def motion_render_plan(engine: MotionEngine) -> tuple[DrawCommand, ...]:
             "circle": Primitive.CIRCLE,
             "diamond": Primitive.DIAMOND,
         }[entity.shape.value]
-        commands.append(DrawCommand(primitive, points, entity.color, outline=(65, 65, 65)))
+        outline = (220, 38, 38) if entity.state == MotionState.WAITING else (65, 65, 65)
+        commands.append(DrawCommand(primitive, points, entity.color, width=2 if entity.state == MotionState.WAITING else 1, outline=outline))
     return tuple(commands)
 
 
@@ -99,6 +100,8 @@ class ReferenceLayoutUI:
         self.plan = build_render_plan(layout, network, include_entities=engine is None)
         self.show_nodes = False
         self.show_routes = False
+        self.show_reservations = False
+        self.show_entity_ids = False
 
     def _viewport(self):
         width, height = self.screen.get_size()
@@ -120,6 +123,12 @@ class ReferenceLayoutUI:
                     commands.append(DrawCommand(Primitive.LINE, (source.x, source.y, target.x, target.y), entity.color, 2.5))
         if self.engine is not None:
             commands.extend(motion_render_plan(self.engine))
+        if self.show_reservations and self.engine is not None and hasattr(self.engine, "controller"):
+            controller = self.engine.controller
+            for edge_id in controller.edge_reservations:
+                edge = self.graph.edge(edge_id)
+                source, target = self.graph.node(edge.source), self.graph.node(edge.target)
+                commands.append(DrawCommand(Primitive.LINE, (source.x, source.y, target.x, target.y), (231, 76, 60), 3.0))
         for command in commands:
             if command.primitive == Primitive.RECT:
                 rect = pygame.Rect(_scaled_rect(command.points, scale, scale, ox, oy))
@@ -141,6 +150,12 @@ class ReferenceLayoutUI:
         if self.show_nodes and self.graph is not None:
             for node in self.graph.nodes:
                 pygame.draw.circle(self.screen, (80, 80, 80), (round(ox + node.x * scale), round(oy + node.y * scale)), max(1, round(2 * scale)))
+        if self.show_entity_ids and self.engine is not None:
+            font = pygame.font.SysFont("arial", max(9, round(11 * scale)))
+            for entity in self.engine.entities:
+                x, y = entity.position(self.graph)
+                label = font.render(entity.id, True, (35, 35, 35))
+                self.screen.blit(label, (round(ox + x * scale + 7), round(oy + y * scale - 8)))
         pygame.display.flip()
 
     def run(self) -> None:
@@ -161,6 +176,10 @@ class ReferenceLayoutUI:
                         self.show_nodes = not self.show_nodes
                     elif event.key == self.pygame.K_p:
                         self.show_routes = not self.show_routes
+                    elif event.key == self.pygame.K_t:
+                        self.show_reservations = not self.show_reservations
+                    elif event.key == self.pygame.K_i:
+                        self.show_entity_ids = not self.show_entity_ids
             if self.engine is not None:
                 self.engine.update(delta_time)
             self.draw()

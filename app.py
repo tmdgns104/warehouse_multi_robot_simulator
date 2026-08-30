@@ -23,6 +23,36 @@ def parse_args() -> argparse.Namespace:
         help="run N core simulation ticks without opening pygame",
     )
     parser.add_argument(
+        "--headless-traffic",
+        type=float,
+        metavar="SECONDS",
+        help="run the V4 continuous traffic demo without pygame",
+    )
+    parser.add_argument(
+        "--render-traffic",
+        type=Path,
+        metavar="PNG",
+        help="render a V4 traffic snapshot with Pillow and exit",
+    )
+    parser.add_argument(
+        "--entity-count", "--entities",
+        type=int,
+        default=16,
+        metavar="N",
+        help="V4 demo entity count (1-64, default: 16)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=1234,
+        help="deterministic V4 scenario seed",
+    )
+    parser.add_argument(
+        "--one-shot",
+        action="store_true",
+        help="do not assign another goal after a V4 trip arrives",
+    )
+    parser.add_argument(
         "--headless-motion",
         type=float,
         metavar="SECONDS",
@@ -87,6 +117,41 @@ def main() -> int:
             print(f"motion snapshot rendered: {output} time={duration:.3f}s")
         return 0
 
+    if args.headless_traffic is not None or args.render_traffic is not None:
+        from warehouse_sim.reference_traffic_scenario import create_reference_traffic_scenario
+
+        duration = args.headless_traffic if args.headless_traffic is not None else args.motion_time
+        if duration < 0:
+            raise SystemExit("traffic duration must be zero or greater")
+        try:
+            scenario = create_reference_traffic_scenario(
+                args.entity_count, seed=args.seed, looping=not args.one_shot
+            )
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
+        step = 1.0 / 60.0
+        remaining = duration
+        while remaining > 1e-12:
+            delta = min(step, remaining)
+            scenario.engine.update(delta)
+            scenario.engine.validate_safety()
+            remaining -= delta
+        metrics = scenario.engine.metrics
+        print(
+            f"entities={len(scenario.engine.entities)} simulated_seconds={duration:.3f} "
+            f"moving={metrics.moving_count} waiting={metrics.waiting_count} "
+            f"arrived={metrics.arrived_count} completed_trips={metrics.total_completed_trips} "
+            f"conflicts_avoided={metrics.reservation_conflicts} "
+            f"waiting_events={metrics.waiting_events} "
+            f"deadlock_recoveries={metrics.deadlock_recoveries} collision_count=0"
+        )
+        if args.render_traffic is not None:
+            from warehouse_sim.reference_renderer import render_motion_with_pillow
+
+            output = render_motion_with_pillow(scenario.layout, scenario.engine, args.render_traffic)
+            print(f"traffic snapshot rendered: {output} time={duration:.3f}s")
+        return 0
+
     if args.headless_ticks is not None:
         simulation = create_default_simulation()
         if args.headless_ticks < 0:
@@ -110,8 +175,13 @@ def main() -> int:
             application = WarehouseUI(simulation)
         else:
             from warehouse_sim.reference_renderer import ReferenceLayoutUI
-            from warehouse_sim.reference_motion_scenario import create_reference_motion_scenario
-            scenario = create_reference_motion_scenario()
+            from warehouse_sim.reference_traffic_scenario import create_reference_traffic_scenario
+            try:
+                scenario = create_reference_traffic_scenario(
+                    args.entity_count, seed=args.seed, looping=not args.one_shot
+                )
+            except ValueError as error:
+                raise SystemExit(str(error)) from error
             application = ReferenceLayoutUI(scenario.layout, scenario.graph, scenario.engine)
     except ModuleNotFoundError as error:
         if error.name == "pygame":

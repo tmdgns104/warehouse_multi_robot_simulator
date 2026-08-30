@@ -8,6 +8,12 @@ from .reference_scenario import create_reference_layout
 from .lane_graph import LaneEdge, LaneGraph, LaneNode
 from .motion import LaneMobileEntity, MotionEngine, MotionState
 from .reference_motion_scenario import create_reference_motion_scenario
+from .traffic import TrafficController
+from .traffic_simulation import TrafficMetrics, TrafficMotionEngine
+from .reference_traffic_scenario import (
+    DEFAULT_ENTITY_COUNT,
+    create_reference_traffic_scenario,
+)
 
 __all__ = [
     "CellType",
@@ -26,4 +32,9 @@ __all__ = [
     "MotionEngine",
     "MotionState",
     "create_reference_motion_scenario",
+    "TrafficController",
+    "TrafficMetrics",
+    "TrafficMotionEngine",
+    "DEFAULT_ENTITY_COUNT",
+    "create_reference_traffic_scenario",
 ]

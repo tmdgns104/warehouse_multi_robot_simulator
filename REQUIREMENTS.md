@@ -4,7 +4,7 @@
 
 이 문서는 V1 Prototype부터 V12 최종 Multi-AMR Digital Twin까지의 요구사항을 정의한다.
 
-현재 개발 목표는 **V3 Lane Graph + Continuous Motion**이다.
+현재 개발 목표는 **V4 Multi-Agent Traffic Control**이다.
 
 ---
 

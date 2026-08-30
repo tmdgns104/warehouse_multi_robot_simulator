@@ -1,0 +1,13 @@
+V4 headless traffic evidence
+
+command: python3 app.py --headless-traffic 120 --entities 16 --seed 1234
+entities=16
+simulated_seconds=120.000
+moving=7
+waiting=9
+arrived=0
+completed_trips=97
+conflicts_avoided=44745
+waiting_events=151
+deadlock_recoveries=31
+collision_count=0

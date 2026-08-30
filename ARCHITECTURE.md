@@ -209,6 +209,25 @@ Resource:
 - Intersection Group
 - Optional Station Dock
 
+#### V4 Implemented Boundary
+
+```text
+TrafficMotionEngine
+  ├─ seeded goal reassignment / Graph A*
+  ├─ update(delta_time)
+  └─ priority-ordered entry requests
+              ↓
+TrafficController
+  ├─ node_reservations[node_id] = entity_id
+  ├─ edge_reservations[edge_id] = entity_id
+  ├─ GRANT / WAIT
+  └─ blocked warning events
+              ↓
+LaneGraph
+```
+
+Entity가 Edge에 들어가기 전에 Edge와 target Node를 함께 예약하고 현재 Node를 해제한다. Edge 완료 시 Edge만 해제하고 target Node 점유는 유지한다. 기본 V4는 안전을 위해 같은 Edge의 같은 방향 follow도 직렬화한다. 완전한 deadlock solver 대신 장기 대기 경고와 빈 인접 Node를 이용한 제한적 demo recovery만 제공한다.
+
 ### 4.5 Task Manager
 
 Task는 이동 목적을 제공한다.
