@@ -5,6 +5,9 @@ from .robot import Robot, RobotState
 from .simulation import Simulation, create_default_simulation
 from .facility_layout import FacilityLayout
 from .reference_scenario import create_reference_layout
+from .lane_graph import LaneEdge, LaneGraph, LaneNode
+from .motion import LaneMobileEntity, MotionEngine, MotionState
+from .reference_motion_scenario import create_reference_motion_scenario
 
 __all__ = [
     "CellType",
@@ -16,4 +19,11 @@ __all__ = [
     "create_default_simulation",
     "FacilityLayout",
     "create_reference_layout",
+    "LaneNode",
+    "LaneEdge",
+    "LaneGraph",
+    "LaneMobileEntity",
+    "MotionEngine",
+    "MotionState",
+    "create_reference_motion_scenario",
 ]

@@ -4,7 +4,7 @@ Reference 영상의 2D 자동화/물류 시뮬레이션 화면과 동작을 단�
 
 ## 현재 상태
 
-현재 V2 Layout Reconstruction이 구현되었고 Human Visual Verification이 남아 있습니다.
+현재 V2 Layout Reconstruction은 Human Verification까지 완료되었고, V3 Lane Graph + Continuous Motion이 구현되어 Human Motion Verification을 기다리고 있습니다.
 
 V1에서 구현된 것:
 
@@ -23,7 +23,7 @@ V1에서 구현된 것:
 현재 구현 결과:
 
 ```text
-TASK-006 / V2 Video Layout Reconstruction 구현 완료
+TASK-007 / V3 Lane Graph + Continuous Motion 구현 완료
 ```
 
 입니다.
@@ -73,8 +73,8 @@ Digital Twin Bridge
 | Version | 목표 |
 |---|---|
 | V1 | Core Algorithm Prototype ✅ |
-| V2 | Video Layout Reconstruction ✅ (화면 확인 필요) |
-| V3 | Lane Graph + Continuous Motion |
+| V2 | Video Layout Reconstruction ✅ |
+| V3 | Lane Graph + Continuous Motion ✅ (움직임 확인 필요) |
 | V4 | Multi-Agent Traffic Control |
 | V5 | Task & Material Flow |
 | V6 | Fleet Management |
@@ -111,9 +111,9 @@ reference/warehouse_reference.mp4
 
 자세한 기준은 `VIDEO_ANALYSIS.md`에 기록되어 있습니다.
 
-## V2 실행
+## V3 실행
 
-기본 실행은 Reference 영상형 V2 Layout을 표시합니다.
+기본 실행은 V2 Facility 위에서 5개 Entity가 Lane Graph를 따라 연속 이동하는 V3 Demo를 표시합니다.
 
 ### Linux / WSL
 
@@ -123,6 +123,26 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python app.py
+```
+
+V3 화면 키:
+
+- `Space`: 이동 Pause/Start
+- `R`: scenario Reset
+- `N`: LaneNode 표시 전환
+- `P`: 계획 route 표시 전환
+- `Q` 또는 `Esc`: 종료
+
+GUI 없이 5초간 motion을 실행하고 위치를 출력:
+
+```bash
+python app.py --headless-motion 5
+```
+
+V3 Motion Evidence 생성:
+
+```bash
+python app.py --render-motion evidence/v3_lane_motion.png --motion-time 5
 ```
 
 ### Windows PowerShell
@@ -159,7 +179,7 @@ python app.py --headless-ticks 100
 python -m pytest -q
 ```
 
-## V2 Layout/Renderer 구조
+## V3 Graph/Motion 구조
 
 ```text
 src/warehouse_sim/
@@ -167,6 +187,10 @@ src/warehouse_sim/
 ├── reference_scenario.py    # 영상 측정 기반 Reference Scenario
 ├── render_plan.py           # backend-neutral drawing primitives
 ├── reference_renderer.py    # pygame 화면 + Pillow Evidence 출력
+├── lane_graph.py            # LaneNode/LaneEdge와 V2 선→Graph 변환
+├── graph_planner.py          # Lane Graph A*
+├── motion.py                 # Entity progress와 update(delta_time)
+├── reference_motion_scenario.py # 5개 Entity V3 demo
 ├── map.py
 ├── robot.py
 ├── planner.py
@@ -176,13 +200,13 @@ src/warehouse_sim/
 └── ui.py
 ```
 
-V2 좌표는 Scenario에 집중되어 있고 Renderer는 Layout/Render Plan만 읽습니다. 실제 Lane Graph routing과 연속 이동은 V3 범위이므로 아직 구현하지 않았습니다.
+V2 `NetworkSegment`의 교차점이 LaneNode가 되고, 분할된 선 조각이 LaneEdge가 됩니다. 같은 Graph edge를 Renderer가 다시 Network로 그리므로 이동 좌표와 표시 좌표가 일치합니다. Traffic reservation과 충돌 우선순위는 V4 범위이므로 아직 포함하지 않습니다.
 
 기존 코드를 무조건 삭제하고 새로 만드는 것이 아니라, V1의 검증된 알고리즘과 테스트를 보존하면서 단계적으로 Refactor합니다.
 
 ## Visual Evidence
 
-구현 화면은 `evidence/v2_reference_layout.png`에서 확인할 수 있습니다. 원본 영상의 0.00~38.21초 사이 8개 프레임과 비교한 구체적인 관찰 내용은 `VIDEO_ANALYSIS.md`에 기록했습니다.
+V2 화면은 `evidence/v2_reference_layout.png`, V3의 5초 motion snapshot은 `evidence/v3_lane_motion.png`에서 확인할 수 있습니다. 연속성 자체는 `tests/test_motion.py`의 FPS 독립성, 보간, edge transition 테스트와 `--headless-motion`으로 검증합니다.
 
 ## 최종 프로젝트 정의
 

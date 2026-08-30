@@ -2,9 +2,9 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V2
-Current Phase: V2 Implemented / Human Visual Verification Required
-Current Task: TASK-006 - V2 Video Layout Reconstruction Complete
+Current Version: V3
+Current Phase: V3 Implemented / Human Motion Verification Required
+Current Task: TASK-007 - Lane Graph + Continuous Motion Complete
 
 ## Final Goal
 
@@ -71,6 +71,7 @@ V12 Multi-AMR Warehouse Digital Twin
 - Layout/Render Plan 신규 Test 4건 추가
 - V1 Regression을 포함한 전체 17 tests passing
 - PNG Evidence: `evidence/v2_reference_layout.png`
+- Human pygame visual verification: PASS
 
 ## Verification
 
@@ -78,7 +79,35 @@ V12 Multi-AMR Warehouse Digital Twin
 - V1 core regression tests: PASS
 - V2 layout tests: PASS
 - Pillow reference rendering: PASS (1280x720 PNG 직접 확인)
-- pygame GUI window: NOT VERIFIED in the Codex environment because pygame is unavailable
-- Human visual comparison against the video: REQUIRED
+- pygame GUI window: PASS (Human verification)
+- Human visual comparison against the video: PASS
 
-TASK-007 이상은 시작하지 않았다.
+V2 is COMPLETE. TASK-007 implementation is COMPLETE and Human Motion Verification is required. TASK-008 이상은 시작하지 않았다.
+
+## TASK-007 Result
+
+- V2 `NetworkSegment`에서 교차점과 끝점을 자동 추출
+- 224 LaneNode / 359 LaneEdge Reference Graph
+- Directed/Bidirectional edge와 neighbor/traversal API
+- Euclidean heuristic Graph A*와 안전한 no-route 처리
+- `progress 0.0~1.0` edge interpolation
+- 남은 이동거리를 다음 edge로 넘기는 multi-edge transition
+- FPS와 분리된 `MotionEngine.update(delta_time)`
+- 서로 다른 route/speed/shape를 가진 5개 LaneMobileEntity
+- 기본 실행 화면을 V3 motion demo로 연결
+- V1 `--v1`, V2 `--render-reference`, V1 headless 경로 보존
+- V3 Evidence: `evidence/v3_lane_motion.png`
+
+## V3 Verification
+
+- Python compile/import: PASS
+- V1/V2 regression + V3 tests: 30 PASS
+- Directed/Bidirectional/route/no-route tests: PASS
+- progress/interpolation/edge transition/arrival tests: PASS
+- FPS independence and lane-bound movement tests: PASS
+- V3 demo 5-second headless snapshot: PASS
+- V3 demo 60-second arrival (5/5 ARRIVED): PASS
+- Pillow V3 Evidence rendering: PASS
+- pygame continuous-motion verification: HUMAN REQUIRED
+
+TASK-008 이상은 시작하지 않았다.

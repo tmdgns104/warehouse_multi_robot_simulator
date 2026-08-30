@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Tuple
+from typing import Iterable, Optional, Tuple
 
-from .facility_layout import Color, EntityShape, FacilityLayout
+from .facility_layout import Color, EntityShape, FacilityLayout, NetworkSegment
 
 
 class Primitive(str, Enum):
@@ -25,12 +25,16 @@ class DrawCommand:
     outline: Color | None = None
 
 
-def build_render_plan(layout: FacilityLayout) -> tuple[DrawCommand, ...]:
+def build_render_plan(
+    layout: FacilityLayout,
+    network: Optional[Iterable[NetworkSegment]] = None,
+    include_entities: bool = True,
+) -> tuple[DrawCommand, ...]:
     """Translate semantic layout data into ordered visual primitives."""
     commands = []
     for zone in layout.zones:
         commands.append(DrawCommand(Primitive.RECT, (zone.x, zone.y, zone.width, zone.height), zone.fill, outline=zone.outline))
-    for segment in layout.network:
+    for segment in layout.network if network is None else network:
         commands.append(DrawCommand(Primitive.LINE, (*segment.start, *segment.end), segment.color, segment.width))
     for station in layout.stations:
         commands.append(DrawCommand(Primitive.RECT, (station.x, station.y, station.width, station.height), station.color))
@@ -44,7 +48,7 @@ def build_render_plan(layout: FacilityLayout) -> tuple[DrawCommand, ...]:
             DrawCommand(Primitive.RECT, (machine.x + machine.width - 8, machine.y + 2, 5, machine.height - 4), (103, 199, 229)),
             DrawCommand(Primitive.LINE, (machine.x + machine.width / 2, machine.y + 1, machine.x + machine.width / 2, machine.y + machine.height - 1), (235, 73, 75), 2.2),
         ))
-    for entity in layout.entities:
+    for entity in layout.entities if include_entities else ():
         primitive = {
             EntityShape.RECTANGLE: Primitive.RECT,
             EntityShape.CIRCLE: Primitive.CIRCLE,

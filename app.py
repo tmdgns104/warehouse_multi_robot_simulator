@@ -23,6 +23,25 @@ def parse_args() -> argparse.Namespace:
         help="run N core simulation ticks without opening pygame",
     )
     parser.add_argument(
+        "--headless-motion",
+        type=float,
+        metavar="SECONDS",
+        help="run the V3 lane motion engine without pygame",
+    )
+    parser.add_argument(
+        "--render-motion",
+        type=Path,
+        metavar="PNG",
+        help="render a V3 lane-motion snapshot with Pillow and exit",
+    )
+    parser.add_argument(
+        "--motion-time",
+        type=float,
+        default=5.0,
+        metavar="SECONDS",
+        help="simulation time used by --render-motion (default: 5)",
+    )
+    parser.add_argument(
         "--v1",
         action="store_true",
         help="open the original V1 grid simulator instead of the V2 layout",
@@ -44,6 +63,28 @@ def main() -> int:
 
         output = render_with_pillow(create_reference_layout(), args.render_reference)
         print(f"reference layout rendered: {output}")
+        return 0
+
+    if args.headless_motion is not None or args.render_motion is not None:
+        from warehouse_sim.reference_motion_scenario import create_reference_motion_scenario
+
+        duration = args.headless_motion if args.headless_motion is not None else args.motion_time
+        if duration < 0:
+            raise SystemExit("motion duration must be zero or greater")
+        scenario = create_reference_motion_scenario()
+        step = 1.0 / 60.0
+        remaining = duration
+        while remaining > 1e-12:
+            delta = min(step, remaining)
+            scenario.engine.update(delta)
+            remaining -= delta
+        for entity_id, position, state in scenario.engine.snapshot():
+            print(f"entity={entity_id} position=({position[0]:.3f},{position[1]:.3f}) state={state.value}")
+        if args.render_motion is not None:
+            from warehouse_sim.reference_renderer import render_motion_with_pillow
+
+            output = render_motion_with_pillow(scenario.layout, scenario.engine, args.render_motion)
+            print(f"motion snapshot rendered: {output} time={duration:.3f}s")
         return 0
 
     if args.headless_ticks is not None:
@@ -69,8 +110,9 @@ def main() -> int:
             application = WarehouseUI(simulation)
         else:
             from warehouse_sim.reference_renderer import ReferenceLayoutUI
-            from warehouse_sim.reference_scenario import create_reference_layout
-            application = ReferenceLayoutUI(create_reference_layout())
+            from warehouse_sim.reference_motion_scenario import create_reference_motion_scenario
+            scenario = create_reference_motion_scenario()
+            application = ReferenceLayoutUI(scenario.layout, scenario.graph, scenario.engine)
     except ModuleNotFoundError as error:
         if error.name == "pygame":
             print("pygame is not installed. Run: python -m pip install -r requirements.txt")

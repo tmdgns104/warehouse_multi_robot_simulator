@@ -172,6 +172,22 @@ P = start + progress * (end - start)
 
 Simulation update와 Rendering frame rate를 분리하여 부드러운 Animation을 허용한다.
 
+#### V3 Implemented Boundary
+
+```text
+V2 NetworkSegment[]
+        ↓ intersection splitting
+LaneGraph (LaneNode + LaneEdge)
+        ↓ Graph A*
+node-id route
+        ↓ MotionEngine.update(delta_time)
+edge progress / interpolated position
+        ↓
+ReferenceLayoutUI
+```
+
+Reference Scenario의 graph edge가 Renderer의 Network 선 source도 담당하므로 표시된 lane과 실제 이동 좌표가 일치한다. MotionEngine은 pygame을 import하지 않으며, 초 단위 `delta_time`과 pixels/second 속도를 사용한다. V3에는 reservation/traffic permission을 넣지 않는다.
+
 ### 4.4 Traffic Manager
 
 Traffic Manager는 이동 전에 Resource를 예약한다.
