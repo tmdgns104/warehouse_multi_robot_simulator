@@ -258,6 +258,22 @@ FacilityLayout
 
 7px clearance는 V4 최대 Entity 폭 11px의 반폭 5.5px와 1.5px 수치/렌더링 여유의 합이다. Machine을 관통하던 세 vertical은 확장 경계와 다음 안전 vertical 사이의 aisle 중심을 데이터에서 계산한다. 상단 cap은 관찰된 MobileEntity 주행 근거가 없어 `drivable=False`인 회청색 시각 구조로 유지한다. Reference 여러 시점의 하단 이동 객체와 정렬되는 중앙 `vertical_5`~`vertical_8`만 기존 centerline 그대로 bottom return에 연결한다. 나머지 15px stub은 주행 근거가 없어 연결하지 않는다. Machine 내부 장식선은 짙은 청색 equipment primitive이며 Station/Marker의 통행 불가 의미도 확인되지 않아 obstacle로 승격하지 않는다.
 
+#### V4.2 Canonical Lane Rendering
+
+```text
+Safe LaneGraph edges + canonical LaneNode coordinates
+                         ↓
+                 network_segments()
+                         ↓
+            reference_render_segments()
+              ├─ exact driving edges
+              └─ explicit visual-only detail
+                         ↓
+                  pygame / Pillow
+```
+
+Renderer는 raw drivable `FacilityLayout.network`를 다시 그리지 않는다. 모든 driving line endpoint는 LaneNode 좌표에서 생성되므로 planner, motion, graph, renderer가 동일한 snap-normalized 좌표를 사용한다. Reference에서 bottom return 연결 근거가 없는 vertical은 y=618 driving junction에서 끝나고 y=618~633 tail만 회청색 visual-only로 보존한다. 따라서 bottom return과의 15px 간격은 끊어진 driving rail이 아니라 의도적으로 분리된 reference detail이다.
+
 ### 4.5 Task Manager
 
 Task는 이동 목적을 제공한다.

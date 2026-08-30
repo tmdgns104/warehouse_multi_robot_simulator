@@ -16,6 +16,8 @@ from warehouse_sim.lane_safety import (
     point_inside_obstacle,
     perpendicular_endpoint_gaps,
     reference_driving_segments,
+    reference_render_segments,
+    reference_visual_only_segments,
     segment_intersects_obstacle,
     snap_lane_gaps,
     unsafe_edges,
@@ -111,8 +113,11 @@ def test_only_observed_central_aisles_connect_to_bottom_return():
     segments = {segment.id: segment for segment in reference_driving_segments(create_reference_layout())}
     assert BOTTOM_RETURN_CONNECTOR_IDS == {"vertical_5", "vertical_6", "vertical_7", "vertical_8"}
     assert all(segments[name].end[1] == 648 for name in BOTTOM_RETURN_CONNECTOR_IDS)
-    assert segments["vertical_4"].end[1] == 633
-    assert segments["vertical_9"].end[1] == 633
+    assert segments["vertical_4"].end[1] == 618
+    assert segments["vertical_9"].end[1] == 618
+    tails = {segment.id: segment for segment in reference_visual_only_segments(create_reference_layout())}
+    assert tails["visual_tail_vertical_4"].start == (405, 618)
+    assert tails["visual_tail_vertical_4"].end == (405, 633)
 
 
 def test_visual_only_network_style_cannot_be_confused_with_driving_lane():
@@ -121,14 +126,17 @@ def test_visual_only_network_style_cannot_be_confused_with_driving_lane():
     visual_colors = {segment.color for segment in layout.network if not segment.drivable}
     assert visual_colors.isdisjoint(driving_colors)
     graph = build_safe_lane_graph(layout)
-    rendered_edges = {
-        frozenset((segment.start, segment.end)) for segment in graph.network_segments()
-    }
+    rendered = reference_render_segments(layout, graph)
+    rendered_driving = rendered[: len(graph.edges)]
+    rendered_edges = {frozenset((segment.start, segment.end)) for segment in rendered_driving}
     graph_edges = {
         frozenset((graph.node(edge.source).position, graph.node(edge.target).position))
         for edge in graph.edges
     }
     assert rendered_edges == graph_edges
+    assert len(rendered_driving) == len(graph.edges)
+    assert all(segment.drivable for segment in rendered_driving)
+    assert all(not segment.drivable for segment in rendered[len(graph.edges):])
     assert not perpendicular_endpoint_gaps(reference_driving_segments(layout))
     machine_detail_lines = [
         command for command in build_render_plan(layout)

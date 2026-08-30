@@ -9,7 +9,7 @@ from .facility_layout import FacilityLayout, NetworkSegment
 from .lane_graph import LaneGraph
 from .motion import MotionEngine, MotionState
 from .render_plan import DrawCommand, Primitive, build_render_plan
-from .lane_safety import machine_obstacles
+from .lane_safety import machine_obstacles, reference_render_segments, reference_visual_only_segments
 
 
 def _scaled_rect(points, sx, sy, ox=0, oy=0):
@@ -68,8 +68,9 @@ def render_motion_with_pillow(layout: FacilityLayout, engine: MotionEngine, outp
     image = Image.new("RGB", size, (30, 30, 30))
     draw = ImageDraw.Draw(image)
     sx, sy = size[0] / layout.design_width, size[1] / layout.design_height
-    visual_only = tuple(segment for segment in layout.network if not segment.drivable)
-    base = build_render_plan(layout, (*engine.graph.network_segments(), *visual_only), include_entities=False)
+    base = build_render_plan(
+        layout, reference_render_segments(layout, engine.graph), include_entities=False
+    )
     _draw_pillow_commands(draw, base, sx, sy)
     _draw_pillow_commands(draw, motion_render_plan(engine), sx, sy)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -98,12 +99,14 @@ class ReferenceLayoutUI:
         self.clock = pygame.time.Clock()
         self.graph = graph
         self.engine = engine
-        network = ((*graph.network_segments(), *(segment for segment in layout.network if not segment.drivable))) if graph is not None else None
+        network = reference_render_segments(layout, graph) if graph is not None else None
         self.plan = build_render_plan(layout, network, include_entities=engine is None)
         self.show_nodes = False
         self.show_routes = False
         self.show_reservations = False
         self.show_entity_ids = False
+        self.show_topology_debug = False
+
     def _viewport(self):
         width, height = self.screen.get_size()
         scale = min(width / self.layout.design_width, height / self.layout.design_height)
@@ -157,6 +160,24 @@ class ReferenceLayoutUI:
                 x, y = entity.position(self.graph)
                 label = font.render(entity.id, True, (35, 35, 35))
                 self.screen.blit(label, (round(ox + x * scale + 7), round(oy + y * scale - 8)))
+        if self.show_topology_debug and self.graph is not None:
+            for obstacle in machine_obstacles(self.layout):
+                expanded = pygame.Rect(_scaled_rect(
+                    (obstacle.left, obstacle.top, obstacle.right - obstacle.left, obstacle.bottom - obstacle.top),
+                    scale, scale, ox, oy,
+                ))
+                pygame.draw.rect(self.screen, (220, 45, 45), expanded, max(1, round(scale)))
+            for machine in self.layout.machines:
+                bounds = pygame.Rect(_scaled_rect(
+                    (machine.x, machine.y, machine.width, machine.height), scale, scale, ox, oy
+                ))
+                pygame.draw.rect(self.screen, (235, 151, 35), bounds, max(1, round(2 * scale)))
+            for node in self.graph.nodes:
+                pygame.draw.circle(
+                    self.screen, (25, 95, 70),
+                    (round(ox + node.x * scale), round(oy + node.y * scale)),
+                    max(2, round(2 * scale)),
+                )
         pygame.display.flip()
 
     def run(self) -> None:
@@ -181,6 +202,8 @@ class ReferenceLayoutUI:
                         self.show_reservations = not self.show_reservations
                     elif event.key == self.pygame.K_i:
                         self.show_entity_ids = not self.show_entity_ids
+                    elif event.key == self.pygame.K_d:
+                        self.show_topology_debug = not self.show_topology_debug
             if self.engine is not None:
                 self.engine.update(delta_time)
             self.draw()
@@ -194,7 +217,7 @@ def render_topology_debug_with_pillow(layout: FacilityLayout, graph: LaneGraph, 
     image = Image.new("RGB", size, (30, 30, 30))
     draw = ImageDraw.Draw(image, "RGBA")
     sx, sy = size[0] / layout.design_width, size[1] / layout.design_height
-    visual_only = tuple(segment for segment in layout.network if not segment.drivable)
+    visual_only = reference_visual_only_segments(layout)
     component_by_node = {}
     remaining = {node.id for node in graph.nodes}
     component = 0

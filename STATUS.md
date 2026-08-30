@@ -2,9 +2,9 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V4
-Current Phase: V4.1 Human GUI Revision Implemented / Automated PASS / Human Topology Verification Required
-Current Task: TASK-008A - Awaiting Human Topology Verification
+Current Version: V4.2
+Current Phase: TASK-008B Implemented / Automated PASS / Human Lane Continuity Verification Required
+Current Task: TASK-008B - Visual Lane Continuity Repair
 
 ## Final Goal
 
@@ -217,3 +217,35 @@ Evidence:
 - `evidence/v4_1_safe_topology_stress.txt`
 
 HUMAN TOPOLOGY / OBSTACLE VERIFICATION REQUIRED. TASK-009 이상은 시작하지 않았다.
+
+## TASK-008B Result
+
+Human 발견 문제인 "Safe Graph는 되었지만 rendered rail continuity가 불완전함"을 수정했다.
+
+- Driving renderer source를 Safe LaneGraph `network_segments()`로 단일화
+- Route/Motion/Renderer가 동일한 canonical LaneNode 좌표 사용
+- Renderer driving segments 342 == graph edges 342
+- Renderer에 누락되거나 추가된 driving edge 0
+- 의도하지 않은 1px/2px perpendicular endpoint gap 0
+- Upper Cap: 회청색 visual-only 유지
+- Machine 내부 detail: 짙은 청색 facility primitive 유지
+- 하단 중앙 `vertical_5`~`vertical_8`: bottom return driving connection 유지
+- 나머지 vertical: y=618 cross aisle에서 driving 종료, y=618~633은 회청색 visual-only tail
+- `D` debug overlay: LaneNode, Machine bounds, expanded clearance
+- Before: 213 nodes / 355 edges / 1 component
+- After: 200 nodes / 342 edges / 1 component
+- Unsafe nodes / edges: 0 / 0
+- Full tests: 57 PASS
+
+새 300초 stress 결과:
+
+- 16 entities: 272 trips; collisions/head-on/deadlocks/obstacle penetrations = 0
+- 24 entities: 395 trips; collisions/head-on/deadlocks/obstacle penetrations = 0
+
+Evidence:
+
+- `evidence/v4_2_lane_continuity.png`
+- `evidence/v4_2_lane_debug.png`
+- `evidence/v4_2_traffic_stress.txt`
+
+TASK-008B IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN LANE CONTINUITY VERIFICATION REQUIRED. TASK-009 이상은 시작하지 않았다.

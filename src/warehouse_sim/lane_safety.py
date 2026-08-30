@@ -16,6 +16,7 @@ LANE_SNAP_TOLERANCE = 2.0
 # Rechecked video frames show lower moving objects aligned with these central
 # exits. Other 15 px stubs remain unchanged rather than inventing connectors.
 BOTTOM_RETURN_CONNECTOR_IDS = frozenset({"vertical_5", "vertical_6", "vertical_7", "vertical_8"})
+VISUAL_ONLY_COLOR = (172, 187, 196)
 
 
 @dataclass(frozen=True)
@@ -130,6 +131,47 @@ def _connect_observed_bottom_aisles(segments: tuple[NetworkSegment, ...]) -> tup
     return tuple(connected)
 
 
+def _separate_unverified_bottom_tails(
+    segments: tuple[NetworkSegment, ...],
+) -> tuple[tuple[NetworkSegment, ...], tuple[NetworkSegment, ...]]:
+    """End unverified driving stubs at a junction and retain their tails as decoration.
+
+    Reference frames show the short vertical tails below the last cross aisle,
+    but do not show them joining the bottom return.  Rendering them as grey
+    visual-only tails makes the deliberate separation explicit instead of
+    presenting a 15 px near-miss between two driving rails.
+    """
+    horizontal_y = sorted({
+        segment.start[1]
+        for segment in segments
+        if segment.start[1] == segment.end[1]
+    })
+    junction_y, bottom_y = horizontal_y[-2:]
+    driving = []
+    tails = []
+    for segment in segments:
+        vertical = segment.start[0] == segment.end[0]
+        low, high = sorted((segment.start[1], segment.end[1])) if vertical else (0, 0)
+        if (
+            vertical
+            and segment.id.startswith("vertical_")
+            and segment.id not in BOTTOM_RETURN_CONNECTOR_IDS
+            and low < junction_y < high < bottom_y
+        ):
+            start = segment.start if segment.start[1] == low else segment.end
+            driving.append(NetworkSegment(
+                segment.id, start, (start[0], junction_y),
+                segment.color, segment.width, segment.drivable,
+            ))
+            tails.append(NetworkSegment(
+                f"visual_tail_{segment.id}", (start[0], junction_y), (start[0], high),
+                VISUAL_ONLY_COLOR, 0.7, False,
+            ))
+        else:
+            driving.append(segment)
+    return tuple(driving), tuple(tails)
+
+
 def snap_lane_gaps(
     segments: tuple[NetworkSegment, ...], obstacles: tuple[RectangleObstacle, ...]
 ) -> tuple[NetworkSegment, ...]:
@@ -192,11 +234,29 @@ def perpendicular_endpoint_gaps(
     return tuple(gaps)
 
 
-def reference_driving_segments(layout: FacilityLayout) -> tuple[NetworkSegment, ...]:
+def _reference_lane_segments(
+    layout: FacilityLayout,
+) -> tuple[tuple[NetworkSegment, ...], tuple[NetworkSegment, ...]]:
     obstacles = machine_obstacles(layout)
     drivable = tuple(segment for segment in layout.network if segment.drivable)
     repaired = _relocate_unsafe_verticals(drivable, obstacles)
-    return snap_lane_gaps(_connect_observed_bottom_aisles(repaired), obstacles)
+    connected = _connect_observed_bottom_aisles(repaired)
+    driving, generated_visual = _separate_unverified_bottom_tails(connected)
+    return snap_lane_gaps(driving, obstacles), generated_visual
+
+
+def reference_driving_segments(layout: FacilityLayout) -> tuple[NetworkSegment, ...]:
+    return _reference_lane_segments(layout)[0]
+
+
+def reference_visual_only_segments(layout: FacilityLayout) -> tuple[NetworkSegment, ...]:
+    declared = tuple(segment for segment in layout.network if not segment.drivable)
+    return (*declared, *_reference_lane_segments(layout)[1])
+
+
+def reference_render_segments(layout: FacilityLayout, graph: LaneGraph) -> tuple[NetworkSegment, ...]:
+    """Canonical renderer input: graph edges plus explicitly non-driving detail."""
+    return (*graph.network_segments(), *reference_visual_only_segments(layout))
 
 
 def build_safe_lane_graph(layout: FacilityLayout) -> LaneGraph:

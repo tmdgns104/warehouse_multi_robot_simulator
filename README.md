@@ -133,6 +133,7 @@ V4 화면 키:
 - `P`: 계획 route 표시 전환
 - `T`: Edge reservation 표시 전환
 - `I`: Entity ID 표시 전환
+- `D`: LaneNode, Machine bounds, 7px clearance debug overlay 전환
 - `Q` 또는 `Esc`: 종료
 
 GUI 없이 5초간 motion을 실행하고 위치를 출력:
@@ -173,6 +174,15 @@ V4.1 안전 topology Evidence 생성:
 python app.py --render-traffic evidence/v4_1_safe_lane_topology.png --motion-time 30 --entities 16
 python app.py --render-topology-debug evidence/v4_1_topology_debug.png
 ```
+
+V4.2 Lane continuity Evidence 생성:
+
+```bash
+python app.py --render-traffic evidence/v4_2_lane_continuity.png --motion-time 30 --entities 16
+python app.py --render-topology-debug evidence/v4_2_lane_debug.png
+```
+
+V4.2에서는 `SafeLaneGraph.network_segments()`가 화면의 유일한 driving rail source입니다. Upper Cap과 Reference의 비주행 하단 tail은 회청색 visual-only 구조이며, Machine 내부 detail은 짙은 청색입니다.
 
 기본 V4.1 주행선은 7px 확장 Machine obstacle을 피하는 Safe LaneGraph입니다. 화면도 이 graph edge를 직접 그리므로 숨겨진 Machine 관통 edge가 없습니다. 상단 cap은 영상에서 이동 객체의 주행 근거가 없어 회청색 visual-only 구조로 유지합니다. Reference 재확인에서 하단 이동 객체와 정렬되는 중앙 `vertical_5`~`vertical_8`만 bottom return까지 연결했고, 나머지 근거 없는 stub은 유지했습니다. Machine 내부 장식선은 짙은 청색으로 분리했습니다.
 
