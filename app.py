@@ -143,7 +143,16 @@ def main() -> int:
             f"arrived={metrics.arrived_count} completed_trips={metrics.total_completed_trips} "
             f"conflicts_avoided={metrics.reservation_conflicts} "
             f"waiting_events={metrics.waiting_events} "
-            f"deadlock_recoveries={metrics.deadlock_recoveries} collision_count=0"
+            f"deadlock_recoveries={metrics.deadlock_recoveries} "
+            f"moving_ratio={metrics.moving_ratio:.4f} average_speed={metrics.average_speed:.3f} "
+            f"average_wait={metrics.average_wait_time:.3f} max_wait={metrics.max_wait_time:.3f} "
+            f"reroutes={metrics.reroute_count} stops={metrics.stop_count} "
+            f"stopped_over_5s={metrics.stopped_over_5s} "
+            f"head_on_conflicts={metrics.head_on_conflict_count} "
+            f"head_on_prevented={metrics.head_on_conflicts_prevented} "
+            f"deadlocks={metrics.deadlock_count} deadlocks_prevented={metrics.deadlock_prevented_count} "
+            f"indefinite_wait={metrics.indefinite_wait_count} "
+            f"throughput_per_min={metrics.throughput_per_minute:.3f} collision_count=0"
         )
         if args.render_traffic is not None:
             from warehouse_sim.reference_renderer import render_motion_with_pillow

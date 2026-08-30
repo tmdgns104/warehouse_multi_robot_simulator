@@ -40,12 +40,30 @@ class LaneMobileEntity:
     completed_trips: int = 0
     stable_order: int = 0
     recent_goals: list[str] = field(default_factory=list)
+    preferred_speed: float = 0.0
+    current_speed: float = 0.0
+    target_speed: float = 0.0
+    minimum_moving_speed: float = 8.0
+    total_wait_time: float = 0.0
+    max_wait_time: float = 0.0
+    blocked_duration: float = 0.0
+    last_progress_time: float = 0.0
+    last_reroute_time: float = -1e9
+    reroute_count: int = 0
+    stop_count: int = 0
+    stopped_over_threshold_count: int = 0
 
     def __post_init__(self) -> None:
         if self.speed <= 0:
             raise ValueError("Entity speed must be positive")
         if self.width <= 0 or self.height <= 0:
             raise ValueError("Entity size must be positive")
+        if self.preferred_speed <= 0:
+            self.preferred_speed = self.speed
+        if self.current_speed <= 0:
+            self.current_speed = self.preferred_speed
+        if self.target_speed <= 0:
+            self.target_speed = self.preferred_speed
 
     def position(self, graph: LaneGraph) -> Point:
         if self.current_edge is None or self.route_index >= len(self.route) - 1:

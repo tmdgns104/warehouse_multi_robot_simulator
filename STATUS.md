@@ -3,8 +3,8 @@
 Project: Warehouse Multi-Robot Simulator
 
 Current Version: V4
-Current Phase: V4 Implemented / Human Traffic Verification Required
-Current Task: TASK-008 - Multi-Agent Traffic Control Complete
+Current Phase: V4 Predictive Traffic Implemented / Automated PASS / Human Verification Required
+Current Task: TASK-008 - Predictive Multi-Agent Traffic Control Complete
 
 ## Final Goal
 
@@ -142,3 +142,41 @@ V3 is COMPLETE and Human Motion Verification is PASS.
 - pygame continuous traffic verification: HUMAN REQUIRED
 
 TASK-009 이상은 시작하지 않았다.
+
+## TASK-008 Predictive Upgrade
+
+- 4-edge predictive soft-reservation horizon with expiry
+- Congestion-aware A*: distance + ownership + prediction + zone capacity
+- Three traffic zones with capacity penalties
+- 3-second reroute cooldown and 10% improvement threshold
+- Acceleration-limited preferred/current/target speed coordination
+- Wait-for cycle detection and deadlock-preventing response
+- Traffic-aware goal selection and expanded performance metrics
+
+## Predictive V4 Verification
+
+16 entities / 300 simulated seconds:
+
+- completed trips: 277
+- moving ratio: 0.9892
+- average speed: 36.698 px/s
+- average cumulative wait per entity: 2.959 s
+- max single wait: 4.650 s
+- reroutes: 203
+- stopped over 5 seconds: 0
+- throughput: 55.400 trips/min
+- collisions/head-on/deadlocks/indefinite waits: 0
+
+24 entities / 300 simulated seconds:
+
+- completed trips: 384
+- moving ratio: 0.9355
+- average speed: 36.031 px/s
+- average cumulative wait per entity: 19.093 s
+- max single wait: 5.017 s
+- reroutes: 549
+- stopped over 5 seconds: 18
+- throughput: 76.800 trips/min
+- collisions/head-on/deadlocks/indefinite waits: 0
+
+Automated verification is PASS for required 16-entity acceptance. Human pygame verification is REQUIRED. TASK-009 이상은 시작하지 않았다.

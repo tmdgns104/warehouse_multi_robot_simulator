@@ -51,8 +51,8 @@ V2   Video Layout Reconstruction
 V3   Lane Graph + Continuous Motion
      Grid 자유이동 대신 Node/Edge/Lane Network와 부드러운 이동
 
-V4   Multi-Agent Traffic Control
-     Node/Edge Reservation, 교차로 충돌 방지, 대기/우선순위
+V4   Predictive Multi-Agent Traffic Control
+     Reservation, congestion routing, speed coordination, deadlock prevention
 
 V5   Task & Material Flow
      Pickup/Drop/Move 형태의 작업과 Station 간 흐름

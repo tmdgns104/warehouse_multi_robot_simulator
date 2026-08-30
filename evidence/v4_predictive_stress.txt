@@ -1,0 +1,31 @@
+V4 predictive traffic evidence
+
+16 entities / 300 simulated seconds / seed 1234
+completed_trips=277
+moving_ratio=0.9892
+average_speed=36.698
+average_wait_per_entity=2.959
+max_wait=4.650
+reroutes=203
+stop_events=68
+stopped_over_5s=0
+head_on_conflicts=0
+deadlocks=0
+indefinite_wait=0
+throughput_per_min=55.400
+collision_count=0
+
+24 entities / 300 simulated seconds / seed 1234
+completed_trips=384
+moving_ratio=0.9355
+average_speed=36.031
+average_wait_per_entity=19.093
+max_wait=5.017
+reroutes=549
+stop_events=411
+stopped_over_5s=18
+head_on_conflicts=0
+deadlocks=0
+indefinite_wait=0
+throughput_per_min=76.800
+collision_count=0

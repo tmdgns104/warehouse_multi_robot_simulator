@@ -12,6 +12,7 @@ from .lane_graph import LaneGraph, lane_graph_from_segments
 from .motion import LaneMobileEntity
 from .reference_scenario import create_reference_layout
 from .traffic_simulation import TrafficMotionEngine
+from .traffic_planner import TrafficZone
 
 DEFAULT_ENTITY_COUNT = 16
 MAX_ENTITY_COUNT = 64
@@ -101,5 +102,11 @@ def create_reference_traffic_scenario(
         seed=seed,
         looping=looping,
         goal_candidates=(node.id for node in candidates),
+        blocked_warning_seconds=3.0,
+        zones=(
+            TrafficZone("upper", frozenset(node.id for node in candidates if node.y < 311), 6),
+            TrafficZone("middle", frozenset(node.id for node in candidates if 311 <= node.y < 555), 8),
+            TrafficZone("lower", frozenset(node.id for node in candidates if node.y >= 555), 6),
+        ),
     )
     return ReferenceTrafficScenario(layout, graph, engine)

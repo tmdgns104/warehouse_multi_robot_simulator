@@ -4,7 +4,7 @@ Reference 영상의 2D 자동화/물류 시뮬레이션 화면과 동작을 단�
 
 ## 현재 상태
 
-V2와 V3는 Human Verification까지 완료되었습니다. 현재 V4 Multi-Agent Traffic Control이 구현되어 Human Traffic Verification을 기다리고 있습니다.
+V2와 V3는 Human Verification까지 완료되었습니다. V4는 predictive reservation, congestion-aware routing, dynamic rerouting과 speed coordination까지 자동 검증됐으며 Human Traffic Verification을 기다리고 있습니다.
 
 V1에서 구현된 것:
 
@@ -23,7 +23,7 @@ V1에서 구현된 것:
 현재 구현 결과:
 
 ```text
-TASK-008 / V4 Multi-Agent Traffic Control 구현 완료
+TASK-008 / V4 Predictive Multi-Agent Traffic Control 구현 완료
 ```
 
 입니다.
@@ -113,7 +113,7 @@ reference/warehouse_reference.mp4
 
 ## V4 실행
 
-기본 실행은 V2 Facility 위에서 16개 Entity가 reservation 기반 traffic control을 사용하며 계속 이동하는 V4 Demo를 표시합니다. 도착한 Entity에는 seed 기반 새 LaneNode goal이 자동 할당됩니다.
+기본 실행은 16개 Entity가 미래 4개 Edge를 확인하고 혼잡 비용 기반 route 및 속도 조정을 사용하며 계속 이동하는 V4 Demo를 표시합니다. 도착하면 traffic-aware 새 LaneNode goal이 자동 할당됩니다.
 
 ### Linux / WSL
 
@@ -145,6 +145,13 @@ V4 장시간 traffic 검증:
 
 ```bash
 python app.py --headless-traffic 120 --entities 16 --seed 1234
+```
+
+300초 Acceptance/Scalability 검증:
+
+```bash
+python app.py --headless-traffic 300 --entities 16 --seed 1234
+python app.py --headless-traffic 300 --entities 24 --seed 1234
 ```
 
 Entity 수 변경과 one-shot 실행:
@@ -214,6 +221,7 @@ src/warehouse_sim/
 ├── reference_motion_scenario.py # 5개 Entity V3 demo
 ├── traffic.py               # 중앙 Node/Edge reservation controller
 ├── traffic_simulation.py    # priority, WAITING, 지속 운행과 metrics
+├── traffic_planner.py       # congestion/zone/prediction 비용 기반 A*
 ├── reference_traffic_scenario.py # seed 기반 기본 16 Entity demo
 ├── map.py
 ├── robot.py
@@ -224,13 +232,13 @@ src/warehouse_sim/
 └── ui.py
 ```
 
-V2 `NetworkSegment`의 교차점이 LaneNode가 되고 분할된 선 조각이 LaneEdge가 됩니다. V4에서는 TrafficController가 다음 Edge와 목적 Node를 원자적으로 예약합니다. 오래 기다린 Entity가 우선이며 동률은 생성 순서로 결정됩니다. 완전한 MAPF/deadlock solver는 포함하지 않습니다.
+TrafficController는 실제 진입 안전용 hard reservation과 4-edge horizon의 만료되는 predictive reservation을 분리합니다. Traffic A*는 거리, hard/soft reservation, 예상 혼잡과 zone capacity를 비용으로 사용합니다. 재계획은 cooldown과 개선 임계치를 적용하며 미래 병목이 보이면 정지 전에 속도를 부드럽게 낮춥니다. 완전한 MAPF solver는 포함하지 않습니다.
 
 기존 코드를 무조건 삭제하고 새로 만드는 것이 아니라, V1의 검증된 알고리즘과 테스트를 보존하면서 단계적으로 Refactor합니다.
 
 ## Visual Evidence
 
-V2 화면은 `evidence/v2_reference_layout.png`, V3 motion은 `evidence/v3_lane_motion.png`, V4 16-entity traffic은 `evidence/v4_traffic.png`에서 확인할 수 있습니다. 장시간 안전성은 `--headless-traffic`과 `tests/test_traffic.py`로 검증합니다.
+Predictive V4 화면은 `evidence/v4_predictive_traffic.png`, 16/24 Entity 수치는 `evidence/v4_predictive_stress.txt`에 있습니다. 장시간 안전성과 흐름은 `--headless-traffic`, `tests/test_traffic.py`, `tests/test_predictive_traffic.py`로 검증합니다.
 
 ## 최종 프로젝트 정의
 

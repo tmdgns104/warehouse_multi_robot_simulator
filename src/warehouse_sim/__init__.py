@@ -10,6 +10,7 @@ from .motion import LaneMobileEntity, MotionEngine, MotionState
 from .reference_motion_scenario import create_reference_motion_scenario
 from .traffic import TrafficController
 from .traffic_simulation import TrafficMetrics, TrafficMotionEngine
+from .traffic_planner import CongestionModel, RouteCostConfig, TrafficZone, traffic_astar
 from .reference_traffic_scenario import (
     DEFAULT_ENTITY_COUNT,
     create_reference_traffic_scenario,
@@ -37,4 +38,8 @@ __all__ = [
     "TrafficMotionEngine",
     "DEFAULT_ENTITY_COUNT",
     "create_reference_traffic_scenario",
+    "CongestionModel",
+    "RouteCostConfig",
+    "TrafficZone",
+    "traffic_astar",
 ]

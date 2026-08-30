@@ -101,7 +101,7 @@ Graph A* 또는 Dijkstra를 이용해 Source Station에서 Destination Station�
 
 ---
 
-## 6. V4 - Multi-Agent Traffic Control
+## 6. V4 - Predictive Multi-Agent Traffic Control
 
 ### FR-V4-001 Node Reservation
 
@@ -122,6 +122,18 @@ Graph A* 또는 Dijkstra를 이용해 Source Station에서 Destination Station�
 ### FR-V4-005 Scale
 
 기본 Demo는 10대 이상의 MobileAgent를 시각적으로 처리할 수 있어야 한다.
+
+### FR-V4-006 Predictive Flow
+
+향후 3~5개 Edge의 reservation/congestion을 미리 평가하고 가능한 경우 정지 전에 route 또는 speed를 조절한다.
+
+### FR-V4-007 Traffic-aware Routing
+
+거리뿐 아니라 edge/node reservation, predicted wait와 zone capacity를 비용에 반영한다. 재계획에는 cooldown과 improvement threshold를 둔다.
+
+### FR-V4-008 Performance Acceptance
+
+16 Entity / 300 simulated seconds에서 collision, head-on, deadlock, indefinite wait가 0이어야 하며 throughput과 moving ratio를 실제 측정한다.
 
 ---
 
