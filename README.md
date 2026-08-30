@@ -150,6 +150,17 @@ python app.py --render-factory evidence/v5_factory_task_flow.png --motion-time 6
 python app.py --render-factory-debug evidence/v5_factory_task_debug.png --motion-time 60 --entities 16
 ```
 
+V5.1 기본 GUI는 `busy` workload profile을 사용하며 phase-aware Station usage와 direct task handoff를 적용합니다.
+
+```bash
+python app.py --factory-profile busy
+python app.py --headless-factory 300 --entities 16 --seed 1234 --factory-profile busy
+python app.py --render-factory evidence/v5_1_factory_utilization.png --motion-time 60 --factory-profile busy
+python app.py --render-factory-debug evidence/v5_1_factory_dispatch_debug.png --motion-time 60 --factory-profile busy
+```
+
+Profile은 `light`, `normal`, `busy`, `stress`를 지원합니다. Productive utilization은 Task 단계만 포함하고 RETURNING은 repositioning으로 별도 집계합니다.
+
 기존 V4 random traffic demo는 `python app.py --traffic-demo`로 보존됩니다.
 
 GUI 없이 5초간 motion을 실행하고 위치를 출력:

@@ -328,6 +328,17 @@ Canonical Safe LaneGraph
 
 Task state와 Traffic `MotionState`는 분리한다. 2초 Pickup/Drop 처리 중에는 Robot이 service node에 머물며 작업 시간은 traffic waiting으로 집계하지 않는다. 기본 최대 active task는 10으로 제한해 16대 중 IDLE pool을 유지한다. 배차는 source까지 route length와 stable robot order만 사용하는 V5 deterministic policy이며 V6의 fleet-wide optimization을 선행하지 않는다.
 
+#### V5.1 Phase-aware Dispatch
+
+```text
+MOVING_TO_SOURCE / PICKING      -> source resource
+MOVING_TO_DESTINATION / DROP   -> destination resource
+COMPLETED + dispatchable queue -> direct task handoff
+COMPLETED + no safe task       -> parking return
+```
+
+Source와 destination을 task 전체 기간 동안 동시에 잠그지 않는다. Destination은 pickup 완료 직전에 capacity를 확보하므로 service node 중복 점유를 막으면서 미래 destination을 과도하게 선점하지 않는다. Queue priority 순서는 유지하되 resource-blocked high-priority task는 일시적으로 건너뛴다. Productive(TO_PICKUP/PICKING/CARRYING/DROPPING), repositioning(RETURNING), idle 시간을 별도 적분한다.
+
 ### 4.6 Fleet Manager
 
 Fleet Manager는 `Agent -> Task -> Route -> Traffic Permission`을 연결한다.

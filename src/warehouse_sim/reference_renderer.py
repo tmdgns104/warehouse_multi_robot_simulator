@@ -118,6 +118,7 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
         f"QUEUE       {metrics.tasks_queued}",
         f"ACTIVE      {metrics.tasks_active}",
         f"COMPLETED   {metrics.tasks_completed}",
+        f"PRODUCTIVE  {metrics.productive_utilization * 100:4.1f}%",
         f"IDLE ROBOTS {metrics.idle_robot_count}",
         f"LOADS MOVE  {metrics.loads_in_transit}",
     )
@@ -135,6 +136,17 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
             radius = 4
             draw.ellipse((node.x - radius, node.y - radius, node.x + radius, node.y + radius), fill=(255, 165, 0), outline=(50, 50, 50))
             draw.text((node.x + 6, node.y - 9), station.id, fill=(35, 35, 35))
+        debug_lines = (
+            f"DIRECT HANDOFF {metrics.direct_task_handoffs}",
+            f"PARK RETURNS   {metrics.parking_returns}",
+            f"BLOCK SOURCE   {metrics.assignment_blocked_source_station}",
+            f"BLOCK DEST     {metrics.assignment_blocked_destination_station}",
+            f"BLOCK LIMIT    {metrics.assignment_blocked_max_active}",
+            f"BLOCK NO IDLE  {metrics.assignment_blocked_no_idle_robot}",
+            f"BLOCK NO ROUTE {metrics.assignment_blocked_no_route}",
+        )
+        for index, line in enumerate(debug_lines):
+            draw.text((995, 430 + index * 17), line, fill=(75, 40, 40))
     output.parent.mkdir(parents=True, exist_ok=True)
     image.save(output)
     return output
@@ -254,6 +266,7 @@ class ReferenceLayoutUI:
                 f"QUEUE       {metrics.tasks_queued}",
                 f"ACTIVE      {metrics.tasks_active}",
                 f"COMPLETED   {metrics.tasks_completed}",
+                f"PRODUCTIVE  {metrics.productive_utilization * 100:4.1f}%",
                 f"IDLE ROBOTS {metrics.idle_robot_count}",
                 f"LOADS MOVE  {metrics.loads_in_transit}",
             )

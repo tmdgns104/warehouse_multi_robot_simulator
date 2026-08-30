@@ -1,0 +1,31 @@
+V5.1 factory dispatch and utilization tuning
+seed=1234 profile=busy simulated_seconds=300
+
+BEFORE V5 (16 robots):
+tasks_created=55 tasks_completed=46 queued=6 active_end=3 idle_end=11
+legacy_robot_utilization=0.2710 average_task_cycle_time=50.066
+productive_utilization=not_separated direct_handoffs=0
+
+AFTER V5.1 (16 robots):
+tasks_created=88 tasks_completed=70 queued=12 active_end=6 idle_end=6
+legacy_robot_utilization=0.5588 productive_utilization=0.4291
+repositioning_utilization=0.1297 idle_ratio=0.4412
+average_active_robots=6.866 average_idle_robots=7.059
+average_task_cycle_time=60.350 average_pickup_wait=14.283
+direct_task_handoffs=22 parking_returns=48 loads_in_transit=3 failed_tasks=0
+completed_checkpoint_100_200_300=19,43,69
+queued_dispatchable=0 queued_blocked=12
+assignment_blocked_source_station=74 assignment_blocked_destination_station=55
+assignment_blocked_active_limit=0 assignment_blocked_no_idle_robot=0 assignment_blocked_no_route=0
+collisions=0 head_on=0 deadlocks=0 obstacle_penetrations=0
+lost_loads=0 duplicate_ownership=0 invalid_pickup=0 invalid_drop=0
+
+AFTER V5.1 (24 robots, scalability observation):
+tasks_created=26 tasks_completed=8 queued=12 active_end=6 idle_end=18
+productive_utilization=0.2627 repositioning_utilization=0.0088 idle_ratio=0.7285
+average_active_robots=6.305 average_idle_robots=17.483
+average_task_cycle_time=33.996 direct_task_handoffs=0 parking_returns=8
+assignment_blocked_source_station=19 assignment_blocked_destination_station=10
+collisions=0 head_on=0 deadlocks=0 obstacle_penetrations=0
+
+Automated tests: 71 passed

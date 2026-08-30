@@ -1,6 +1,11 @@
 import pytest
 
-from warehouse_sim.factory import FactoryConfig, FactoryTaskGenerator
+from warehouse_sim.factory import (
+    FactoryConfig,
+    FactoryProfile,
+    FactoryTaskGenerator,
+    factory_config_for_profile,
+)
 from warehouse_sim.graph_planner import graph_astar
 from warehouse_sim.lane_safety import driving_obstacles, point_inside_obstacle
 from warehouse_sim.reference_factory_scenario import create_reference_factory_scenario
@@ -163,3 +168,84 @@ def test_factory_reset_restores_deterministic_idle_queue():
     assert reset_tasks == initial_tasks
     assert all(state == RobotWorkState.IDLE for state in scenario.engine.work_states.values())
     assert scenario.engine.elapsed_time == 0
+
+
+def test_station_usage_is_phase_aware_instead_of_reserving_both_ends():
+    scenario = create_reference_factory_scenario(2, seed=4, config=FactoryConfig(queue_target=1, max_active_tasks=1))
+    engine = scenario.engine
+    task = engine.task_manager.queued[0]
+    engine.task_manager.assign(task, "M01", 0)
+    engine.task_manager.reserve_load(task)
+    engine.task_manager.transition(task, TaskState.MOVING_TO_SOURCE, 0)
+    users = engine._station_users()
+    assert users == {task.source_station_id: task.id}
+    engine.task_manager.transition(task, TaskState.PICKING, 1)
+    engine.task_manager.transition(task, TaskState.MOVING_TO_DESTINATION, 2)
+    users = engine._station_users()
+    assert users == {task.destination_station_id: task.id}
+
+
+def test_destination_capacity_blocks_second_task_until_first_releases_it():
+    scenario = create_reference_factory_scenario(4, seed=5, config=FactoryConfig(queue_target=2, max_active_tasks=2))
+    engine = scenario.engine
+    first, second = engine.task_manager.queued
+    second.destination_station_id = first.destination_station_id
+    for index, task in enumerate((first, second), start=1):
+        engine.task_manager.assign(task, f"M0{index}", 0)
+        engine.task_manager.reserve_load(task)
+        engine.task_manager.transition(task, TaskState.MOVING_TO_SOURCE, 0)
+        engine.task_manager.transition(task, TaskState.PICKING, 1)
+    engine.task_manager.transition(first, TaskState.MOVING_TO_DESTINATION, 2)
+    assert first.destination_station_id in engine._station_users()
+    assert second.destination_station_id in engine._station_users(exclude_task_id=second.id)
+    engine.task_manager.transition(first, TaskState.DROPPING, 3)
+    engine.task_manager.transition(first, TaskState.COMPLETED, 4)
+    assert second.destination_station_id not in engine._station_users(exclude_task_id=second.id)
+
+
+def test_direct_handoff_reuses_completed_robot_without_parking_trip():
+    config = FactoryConfig(pickup_duration=0.1, drop_duration=0.1, queue_target=12, max_active_tasks=10)
+    scenario = create_reference_factory_scenario(8, seed=1234, config=config)
+    advance(scenario.engine, 100)
+    metrics = scenario.engine.factory_metrics
+    assert metrics.direct_task_handoffs > 0
+    assert metrics.direct_task_handoffs < metrics.tasks_completed
+    assert metrics.parking_returns > 0
+
+
+def test_utilization_separates_productive_repositioning_and_idle_time():
+    scenario = create_reference_factory_scenario(8, seed=8, profile=FactoryProfile.BUSY)
+    advance(scenario.engine, 60)
+    metrics = scenario.engine.factory_metrics
+    assert metrics.productive_utilization > 0
+    assert metrics.repositioning_utilization > 0
+    assert metrics.idle_ratio > 0
+    assert metrics.robot_utilization == pytest.approx(
+        metrics.productive_utilization + metrics.repositioning_utilization
+    )
+    assert metrics.productive_utilization + metrics.repositioning_utilization + metrics.idle_ratio == pytest.approx(1)
+
+
+def test_busy_profile_improves_task_participation_without_random_motion():
+    assert factory_config_for_profile("busy").queue_target == 12
+    scenario = create_reference_factory_scenario(16, seed=1234, profile="busy")
+    advance(scenario.engine, 60)
+    metrics = scenario.engine.factory_metrics
+    assert metrics.productive_utilization > 0.30
+    assert metrics.average_active_robots > 5
+    assert metrics.queued_but_dispatchable == 0
+    assert metrics.queued_but_blocked == metrics.tasks_queued
+    assert metrics.assignment_blocked_station > 0
+    assert metrics.assignment_blocked_no_route == 0
+    assert scenario.engine.traffic.looping is False
+
+
+def test_robot_is_never_double_assigned_during_busy_factory_operation():
+    scenario = create_reference_factory_scenario(16, seed=27, profile="busy")
+    advance(scenario.engine, 90)
+    assigned = [
+        task.assigned_robot_id for task in scenario.engine.task_manager.active
+        if task.assigned_robot_id is not None
+    ]
+    assert len(assigned) == len(set(assigned))
+    scenario.engine.task_manager.validate_load_integrity()

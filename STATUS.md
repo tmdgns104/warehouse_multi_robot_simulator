@@ -2,9 +2,9 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V5
-Current Phase: TASK-009 Implemented / Automated PASS / Human Factory Flow Verification Required
-Current Task: TASK-009 - Task & Material Flow
+Current Version: V5.1
+Current Phase: TASK-009A Implemented / Automated PASS / Human Factory Utilization Verification Required
+Current Task: TASK-009A - Factory Dispatch & Robot Utilization Tuning
 
 ## Final Goal
 
@@ -322,3 +322,36 @@ Evidence:
 - `evidence/v5_factory_stress.txt`
 
 TASK-009 IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN FACTORY FLOW VERIFICATION REQUIRED. TASK-010 이상은 시작하지 않았다.
+
+## TASK-009A Result
+
+- Root cause: source+destination full-lifecycle reservation limited eight service points to three active tasks
+- Phase-aware source/destination capacity usage
+- Pickup-complete destination acquisition
+- 22 direct task handoffs before parking
+- Productive / repositioning / idle utilization separation
+- Dispatch block diagnostics and workload profiles
+- Default/acceptance profile: BUSY (`queue_target=12`, `max_active=10`)
+- Full tests: 71 PASS
+
+16 robots / 300 seconds, seed 1234:
+
+- completed tasks: 46 -> 70
+- productive utilization: 0.4291
+- repositioning utilization: 0.1297
+- idle ratio: 0.4412
+- average active / idle robots: 6.866 / 7.059
+- direct handoffs / parking returns: 22 / 48
+- blocked source/destination: 74 / 55
+- blocked limit/no-idle/no-route: 0 / 0 / 0
+- cycle time: 50.066 -> 60.350 seconds (higher-contention trade-off)
+- collision/head-on/deadlock/obstacle penetration: 0
+- load/lifecycle integrity violations: 0
+
+24 robots / 300 seconds:
+
+- tasks completed: 8
+- productive utilization: 0.2627
+- safety violations: 0
+
+TASK-009A IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN FACTORY UTILIZATION VERIFICATION REQUIRED. TASK-010 이상은 시작하지 않았다.

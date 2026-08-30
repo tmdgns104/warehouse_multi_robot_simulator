@@ -15,7 +15,14 @@ from .reference_traffic_scenario import (
     DEFAULT_ENTITY_COUNT,
     create_reference_traffic_scenario,
 )
-from .factory import FactoryConfig, FactoryEngine, FactoryMetrics, FactoryTaskGenerator
+from .factory import (
+    FactoryConfig,
+    FactoryEngine,
+    FactoryMetrics,
+    FactoryProfile,
+    FactoryTaskGenerator,
+    factory_config_for_profile,
+)
 from .reference_factory_scenario import create_reference_factory_scenario
 from .task_manager import (
     FactoryTaskManager,
@@ -56,7 +63,9 @@ __all__ = [
     "FactoryConfig",
     "FactoryEngine",
     "FactoryMetrics",
+    "FactoryProfile",
     "FactoryTaskGenerator",
+    "factory_config_for_profile",
     "FactoryTaskManager",
     "LoadState",
     "MaterialLoad",

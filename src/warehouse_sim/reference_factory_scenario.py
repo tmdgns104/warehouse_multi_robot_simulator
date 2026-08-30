@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .factory import FactoryConfig, FactoryEngine
+from .factory import FactoryConfig, FactoryEngine, FactoryProfile, factory_config_for_profile
 from .lane_safety import driving_obstacles
 from .reference_traffic_scenario import create_reference_traffic_scenario
 from .task_manager import WorkStation
@@ -32,8 +32,10 @@ def create_reference_factory_scenario(
     entity_count: int = 16,
     *,
     seed: int = 1234,
-    config: FactoryConfig = FactoryConfig(),
+    config: FactoryConfig | None = None,
+    profile: FactoryProfile | str = FactoryProfile.BUSY,
 ) -> ReferenceFactoryScenario:
+    config = config or factory_config_for_profile(profile)
     base = create_reference_traffic_scenario(entity_count, seed=seed, looping=False)
     for entity in base.engine.entities:
         entity.goal_node = entity.current_node

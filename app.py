@@ -52,6 +52,12 @@ def parse_args() -> argparse.Namespace:
         help="open the preserved V4 random traffic demo instead of V5 factory flow",
     )
     parser.add_argument(
+        "--factory-profile",
+        choices=("light", "normal", "busy", "stress"),
+        default="busy",
+        help="V5 factory workload profile (default: busy)",
+    )
+    parser.add_argument(
         "--render-traffic",
         type=Path,
         metavar="PNG",
@@ -122,7 +128,9 @@ def main() -> int:
         duration = args.headless_factory if args.headless_factory is not None else args.motion_time
         if duration < 0:
             raise SystemExit("factory duration must be zero or greater")
-        scenario = create_reference_factory_scenario(args.entity_count, seed=args.seed)
+        scenario = create_reference_factory_scenario(
+            args.entity_count, seed=args.seed, profile=args.factory_profile
+        )
         step = 1.0 / 60.0
         remaining = duration
         while remaining > 1e-12:
@@ -137,9 +145,21 @@ def main() -> int:
             f"tasks_created={factory.tasks_created} tasks_queued={factory.tasks_queued} "
             f"tasks_active={factory.tasks_active} tasks_completed={factory.tasks_completed} "
             f"robot_utilization={factory.robot_utilization:.4f} idle_robots={factory.idle_robot_count} "
+            f"productive_utilization={factory.productive_utilization:.4f} "
+            f"repositioning_utilization={factory.repositioning_utilization:.4f} "
+            f"idle_ratio={factory.idle_ratio:.4f} average_idle_robots={factory.average_idle_robots:.3f} "
+            f"average_active_robots={factory.average_active_robots:.3f} "
             f"average_task_cycle_time={factory.average_task_cycle_time:.3f} "
             f"average_pickup_wait={factory.average_pickup_wait:.3f} "
             f"loads_in_transit={factory.loads_in_transit} failed_tasks={factory.failed_tasks} "
+            f"direct_handoffs={factory.direct_task_handoffs} parking_returns={factory.parking_returns} "
+            f"queued_dispatchable={factory.queued_but_dispatchable} "
+            f"queued_blocked={factory.queued_but_blocked} "
+            f"blocked_source={factory.assignment_blocked_source_station} "
+            f"blocked_destination={factory.assignment_blocked_destination_station} "
+            f"blocked_active_limit={factory.assignment_blocked_max_active} "
+            f"blocked_no_idle={factory.assignment_blocked_no_idle_robot} "
+            f"blocked_no_route={factory.assignment_blocked_no_route} "
             f"collision_count=0 head_on_conflicts={traffic.head_on_conflict_count} "
             f"deadlocks={traffic.deadlock_count} obstacle_penetrations={traffic.obstacle_penetration_count}"
         )
@@ -275,7 +295,9 @@ def main() -> int:
             from warehouse_sim.reference_factory_scenario import create_reference_factory_scenario
             from warehouse_sim.reference_renderer import ReferenceLayoutUI
 
-            scenario = create_reference_factory_scenario(args.entity_count, seed=args.seed)
+            scenario = create_reference_factory_scenario(
+                args.entity_count, seed=args.seed, profile=args.factory_profile
+            )
             application = ReferenceLayoutUI(scenario.layout, scenario.graph, scenario.engine)
     except ModuleNotFoundError as error:
         if error.name == "pygame":
