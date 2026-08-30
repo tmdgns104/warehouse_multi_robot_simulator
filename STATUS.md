@@ -3,8 +3,8 @@
 Project: Warehouse Multi-Robot Simulator
 
 Current Version: V2
-Current Phase: Video Reproduction Specification Ready
-Current Task: TASK-006 - V2 Video Layout Reconstruction
+Current Phase: V2 Implemented / Human Visual Verification Required
+Current Task: TASK-006 - V2 Video Layout Reconstruction Complete
 
 ## Final Goal
 
@@ -59,16 +59,26 @@ V12 Multi-AMR Warehouse Digital Twin
 
 영상에서 확인되지 않는 객체의 정확한 의미는 임의로 확정하지 않는다.
 
-## Next Gate
+## TASK-006 Result
 
-TASK-006에서 다음을 수행한다.
+- Reference 영상 8개 시점의 프레임을 OpenCV로 실제 확인
+- 1280x720 영상 좌표계 기반 `FacilityLayout` Domain Model 구현
+- Zone, MachineBlock, Station, NetworkSegment, MobileEntity 분리
+- 상단 8개 블록, 중앙 6x3 반복 설비, 좌우 Marker, 하단 Network 재구성
+- backend-neutral Render Plan 구현
+- 같은 Render Plan을 사용하는 pygame UI와 Pillow Evidence Renderer 구현
+- V2를 기본 화면으로 전환하고 기존 V1은 `--v1` 옵션으로 보존
+- Layout/Render Plan 신규 Test 4건 추가
+- V1 Regression을 포함한 전체 17 tests passing
+- PNG Evidence: `evidence/v2_reference_layout.png`
 
-1. 기존 V1 Repository/Tests 재확인
-2. Reference 영상이 로컬에 있으면 프레임 분석
-3. Facility/Layout Model 설계
-4. 영상형 2D Layout/Renderer 구현
-5. Regression Test
-6. 실행 화면 Human Visual Verification
-7. STATUS.md 갱신
+## Verification
 
-V2 완료 전 V3 이상의 기능을 대규모로 선행 구현하지 않는다.
+- Python compile/import: PASS
+- V1 core regression tests: PASS
+- V2 layout tests: PASS
+- Pillow reference rendering: PASS (1280x720 PNG 직접 확인)
+- pygame GUI window: NOT VERIFIED in the Codex environment because pygame is unavailable
+- Human visual comparison against the video: REQUIRED
+
+TASK-007 이상은 시작하지 않았다.

@@ -22,13 +22,32 @@ def parse_args() -> argparse.Namespace:
         metavar="N",
         help="run N core simulation ticks without opening pygame",
     )
+    parser.add_argument(
+        "--v1",
+        action="store_true",
+        help="open the original V1 grid simulator instead of the V2 layout",
+    )
+    parser.add_argument(
+        "--render-reference",
+        type=Path,
+        metavar="PNG",
+        help="render the V2 layout to a PNG with Pillow and exit",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    simulation = create_default_simulation()
+    if args.render_reference is not None:
+        from warehouse_sim.reference_renderer import render_with_pillow
+        from warehouse_sim.reference_scenario import create_reference_layout
+
+        output = render_with_pillow(create_reference_layout(), args.render_reference)
+        print(f"reference layout rendered: {output}")
+        return 0
+
     if args.headless_ticks is not None:
+        simulation = create_default_simulation()
         if args.headless_ticks < 0:
             raise SystemExit("--headless-ticks must be zero or greater")
         for _ in range(args.headless_ticks):
@@ -44,13 +63,20 @@ def main() -> int:
         return 0 if simulation.all_arrived else 1
 
     try:
-        from warehouse_sim.ui import WarehouseUI
+        if args.v1:
+            from warehouse_sim.ui import WarehouseUI
+            simulation = create_default_simulation()
+            application = WarehouseUI(simulation)
+        else:
+            from warehouse_sim.reference_renderer import ReferenceLayoutUI
+            from warehouse_sim.reference_scenario import create_reference_layout
+            application = ReferenceLayoutUI(create_reference_layout())
     except ModuleNotFoundError as error:
         if error.name == "pygame":
             print("pygame is not installed. Run: python -m pip install -r requirements.txt")
             return 1
         raise
-    WarehouseUI(simulation).run()
+    application.run()
     return 0
 
 

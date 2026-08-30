@@ -4,7 +4,7 @@ Reference 영상의 2D 자동화/물류 시뮬레이션 화면과 동작을 단�
 
 ## 현재 상태
 
-현재 V1은 완료된 **Core Algorithm Prototype**입니다.
+현재 V2 Layout Reconstruction이 구현되었고 Human Visual Verification이 남아 있습니다.
 
 V1에서 구현된 것:
 
@@ -20,10 +20,10 @@ V1에서 구현된 것:
 
 하지만 이 화면은 Reference 영상의 최종 재현본이 아닙니다.
 
-현재 다음 작업은:
+현재 구현 결과:
 
 ```text
-TASK-006 / V2 Video Layout Reconstruction
+TASK-006 / V2 Video Layout Reconstruction 구현 완료
 ```
 
 입니다.
@@ -73,7 +73,7 @@ Digital Twin Bridge
 | Version | 목표 |
 |---|---|
 | V1 | Core Algorithm Prototype ✅ |
-| V2 | Video Layout Reconstruction ← 현재 |
+| V2 | Video Layout Reconstruction ✅ (화면 확인 필요) |
 | V3 | Lane Graph + Continuous Motion |
 | V4 | Multi-Agent Traffic Control |
 | V5 | Task & Material Flow |
@@ -111,9 +111,9 @@ reference/warehouse_reference.mp4
 
 자세한 기준은 `VIDEO_ANALYSIS.md`에 기록되어 있습니다.
 
-## V1 실행
+## V2 실행
 
-기존 Prototype은 계속 실행할 수 있습니다.
+기본 실행은 Reference 영상형 V2 Layout을 표시합니다.
 
 ### Linux / WSL
 
@@ -135,6 +135,18 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
+V2 정적 Evidence PNG 생성:
+
+```bash
+python app.py --render-reference evidence/v2_reference_layout.png
+```
+
+기존 V1 Grid Simulator 실행:
+
+```bash
+python app.py --v1
+```
+
 Headless core simulation:
 
 ```bash
@@ -147,10 +159,14 @@ python app.py --headless-ticks 100
 python -m pytest -q
 ```
 
-## 기존 V1 구조
+## V2 Layout/Renderer 구조
 
 ```text
 src/warehouse_sim/
+├── facility_layout.py       # Zone/Machine/Station/Network/Entity 모델
+├── reference_scenario.py    # 영상 측정 기반 Reference Scenario
+├── render_plan.py           # backend-neutral drawing primitives
+├── reference_renderer.py    # pygame 화면 + Pillow Evidence 출력
 ├── map.py
 ├── robot.py
 ├── planner.py
@@ -160,17 +176,13 @@ src/warehouse_sim/
 └── ui.py
 ```
 
-이 구조는 V2 이후 단계적으로 `Facility / Lane Graph / Traffic / Fleet / Snapshot / Renderer` 구조로 발전합니다.
+V2 좌표는 Scenario에 집중되어 있고 Renderer는 Layout/Render Plan만 읽습니다. 실제 Lane Graph routing과 연속 이동은 V3 범위이므로 아직 구현하지 않았습니다.
 
 기존 코드를 무조건 삭제하고 새로 만드는 것이 아니라, V1의 검증된 알고리즘과 테스트를 보존하면서 단계적으로 Refactor합니다.
 
-## Codex로 다음 작업 시작
+## Visual Evidence
 
-현재 Repository를 VS Code/Codex에서 열고 `CODEX_START_PROMPT.md` 내용을 사용하면 됩니다.
-
-현재 Prompt는 **TASK-006 / V2만 수행**하도록 제한되어 있습니다.
-
-V2가 검증되기 전에 ROS2/Gazebo/Nav2를 한꺼번에 구현하지 않습니다.
+구현 화면은 `evidence/v2_reference_layout.png`에서 확인할 수 있습니다. 원본 영상의 0.00~38.21초 사이 8개 프레임과 비교한 구체적인 관찰 내용은 `VIDEO_ANALYSIS.md`에 기록했습니다.
 
 ## 최종 프로젝트 정의
 
