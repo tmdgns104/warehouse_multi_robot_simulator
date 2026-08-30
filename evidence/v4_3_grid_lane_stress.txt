@@ -1,0 +1,22 @@
+V4.3 obstacle-safe Manhattan grid stress verification
+seed=1234
+
+Topology:
+candidate_grid_segments=30 surviving_segments=53
+driving_nodes=251 driving_edges=405 components=1 cycle_rank=155
+branching_nodes=203 rendered_driving_segments=405
+unintended_1_2px_gaps=0 unsafe_nodes=0 unsafe_edges=0
+machine_and_station_clearance_px=7
+
+16 entities / 300 simulated seconds:
+completed_trips=265 moving_ratio=0.9876 average_speed=36.657
+average_wait=3.447 max_wait=2.617 reroutes=195 stopped_over_5s=0
+used_edges=360 used_nodes=207
+collisions=0 head_on=0 deadlocks=0 indefinite_wait=0 obstacle_penetrations=0
+throughput_per_min=53.000
+
+24 entities / 300 simulated seconds:
+completed_trips=379 moving_ratio=0.9318 average_speed=36.151
+average_wait=20.222 max_wait=5.017 reroutes=454 stopped_over_5s=16
+collisions=0 head_on=0 deadlocks=0 indefinite_wait=0 obstacle_penetrations=0
+throughput_per_min=75.800

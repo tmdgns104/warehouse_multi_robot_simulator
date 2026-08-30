@@ -2,9 +2,9 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V4.2
-Current Phase: TASK-008B Implemented / Automated PASS / Human Lane Continuity Verification Required
-Current Task: TASK-008B - Visual Lane Continuity Repair
+Current Version: V4.3
+Current Phase: TASK-008C Implemented / Automated PASS / Human Grid Lane Verification Required
+Current Task: TASK-008C - Obstacle-safe Manhattan Grid Reconstruction
 
 ## Final Goal
 
@@ -249,3 +249,37 @@ Evidence:
 - `evidence/v4_2_traffic_stress.txt`
 
 TASK-008B IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN LANE CONTINUITY VERIFICATION REQUIRED. TASK-009 이상은 시작하지 않았다.
+
+## TASK-008C Result
+
+Human 요청에 따라 reference-derived rail을 obstacle-safe warehouse Manhattan grid로 재구성했다.
+
+- Reference aisle 좌표 기반 candidate grid: 30 segments
+- Machine + Station 7px expanded obstacle interval pruning
+- Surviving source segments: 53
+- 상단 y=112 driving rail 연결
+- 좌우 x=226/x=962 outer rail 및 Station stack 우회 연결
+- 중앙 Machine row 사이 cross aisle 연결
+- 모든 안전 vertical과 하단 y=555/588/618/648 return 연결
+- Upper Cap y=66 enclosure만 회청색 visual-only 유지
+- Before: 200 nodes / 342 edges / 1 component / cycle rank 143
+- After: 251 nodes / 405 edges / 1 component / cycle rank 155
+- Branching nodes: 203
+- Rendered driving segments 405 == graph edges 405
+- Unsafe nodes / edges: 0 / 0
+- Unintended 1px/2px gaps: 0
+- Full tests: 57 PASS
+
+새 300초 stress 결과:
+
+- 16 entities: 265 trips, 360 edges / 207 nodes 실제 사용
+- 24 entities: 379 trips
+- collisions/head-on/deadlocks/obstacle penetrations: 모두 0
+
+Evidence:
+
+- `evidence/v4_3_grid_lane_topology.png`
+- `evidence/v4_3_grid_lane_debug.png`
+- `evidence/v4_3_grid_lane_stress.txt`
+
+TASK-008C IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN GRID LANE VERIFICATION REQUIRED. TASK-009 이상은 시작하지 않았다.

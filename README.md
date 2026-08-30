@@ -23,7 +23,7 @@ V1에서 구현된 것:
 현재 구현 결과:
 
 ```text
-TASK-008A / V4.1 Safe Lane Topology 구현 완료
+TASK-008C / V4.3 Obstacle-safe Manhattan Grid 구현 / Human 확인 필요
 ```
 
 입니다.
@@ -184,7 +184,16 @@ python app.py --render-topology-debug evidence/v4_2_lane_debug.png
 
 V4.2에서는 `SafeLaneGraph.network_segments()`가 화면의 유일한 driving rail source입니다. Upper Cap과 Reference의 비주행 하단 tail은 회청색 visual-only 구조이며, Machine 내부 detail은 짙은 청색입니다.
 
-기본 V4.1 주행선은 7px 확장 Machine obstacle을 피하는 Safe LaneGraph입니다. 화면도 이 graph edge를 직접 그리므로 숨겨진 Machine 관통 edge가 없습니다. 상단 cap은 영상에서 이동 객체의 주행 근거가 없어 회청색 visual-only 구조로 유지합니다. Reference 재확인에서 하단 이동 객체와 정렬되는 중앙 `vertical_5`~`vertical_8`만 bottom return까지 연결했고, 나머지 근거 없는 stub은 유지했습니다. Machine 내부 장식선은 짙은 청색으로 분리했습니다.
+V4.3 obstacle-safe Manhattan grid Evidence 생성:
+
+```bash
+python app.py --render-traffic evidence/v4_3_grid_lane_topology.png --motion-time 30 --entities 16
+python app.py --render-topology-debug evidence/v4_3_grid_lane_debug.png
+```
+
+V4.3 기본 주행망은 영상에서 측정한 aisle X/Y 좌표로 candidate grid를 만든 뒤 Machine과 Station의 7px 확장 영역을 통과하는 부분만 분할 제거합니다. 상단·좌우 outer rail·중앙 cross aisle·하단 return이 하나의 Manhattan driving component이며, y=66 Upper Cap enclosure만 회청색 visual-only로 유지합니다.
+
+V4.1/V4.2는 obstacle-safe graph와 canonical renderer를 도입한 이력으로 유지됩니다. 현재 기본 화면은 위 V4.3 candidate-grid 결과를 사용합니다.
 
 V3 Motion Evidence 생성:
 

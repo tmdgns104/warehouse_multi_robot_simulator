@@ -9,7 +9,13 @@ from .facility_layout import FacilityLayout, NetworkSegment
 from .lane_graph import LaneGraph
 from .motion import MotionEngine, MotionState
 from .render_plan import DrawCommand, Primitive, build_render_plan
-from .lane_safety import machine_obstacles, reference_render_segments, reference_visual_only_segments
+from .lane_safety import (
+    driving_obstacles,
+    machine_obstacles,
+    reference_render_segments,
+    reference_visual_only_segments,
+    station_obstacles,
+)
 
 
 def _scaled_rect(points, sx, sy, ox=0, oy=0):
@@ -161,7 +167,7 @@ class ReferenceLayoutUI:
                 label = font.render(entity.id, True, (35, 35, 35))
                 self.screen.blit(label, (round(ox + x * scale + 7), round(oy + y * scale - 8)))
         if self.show_topology_debug and self.graph is not None:
-            for obstacle in machine_obstacles(self.layout):
+            for obstacle in driving_obstacles(self.layout):
                 expanded = pygame.Rect(_scaled_rect(
                     (obstacle.left, obstacle.top, obstacle.right - obstacle.left, obstacle.bottom - obstacle.top),
                     scale, scale, ox, oy,
@@ -172,6 +178,11 @@ class ReferenceLayoutUI:
                     (machine.x, machine.y, machine.width, machine.height), scale, scale, ox, oy
                 ))
                 pygame.draw.rect(self.screen, (235, 151, 35), bounds, max(1, round(2 * scale)))
+            for station in self.layout.stations:
+                bounds = pygame.Rect(_scaled_rect(
+                    (station.x, station.y, station.width, station.height), scale, scale, ox, oy
+                ))
+                pygame.draw.rect(self.screen, (135, 75, 175), bounds, max(1, round(2 * scale)))
             for node in self.graph.nodes:
                 pygame.draw.circle(
                     self.screen, (25, 95, 70),
@@ -250,7 +261,7 @@ def render_topology_debug_with_pillow(layout: FacilityLayout, graph: LaneGraph, 
         sx,
         sy,
     )
-    for obstacle in machine_obstacles(layout):
+    for obstacle in driving_obstacles(layout):
         draw.rectangle(
             (obstacle.left * sx, obstacle.top * sy, obstacle.right * sx, obstacle.bottom * sy),
             outline=(230, 40, 40, 230),
@@ -261,6 +272,12 @@ def render_topology_debug_with_pillow(layout: FacilityLayout, graph: LaneGraph, 
         draw.rectangle(
             (machine.x * sx, machine.y * sy, (machine.x + machine.width) * sx, (machine.y + machine.height) * sy),
             outline=(235, 151, 35, 255),
+            width=2,
+        )
+    for station in layout.stations:
+        draw.rectangle(
+            (station.x * sx, station.y * sy, (station.x + station.width) * sx, (station.y + station.height) * sy),
+            outline=(135, 75, 175, 255),
             width=2,
         )
     for node in graph.nodes:
@@ -279,6 +296,8 @@ def render_topology_debug_with_pillow(layout: FacilityLayout, graph: LaneGraph, 
     draw.text((legend_x + 36, legend_y + 55), "machine bounds", fill=(30, 30, 30, 255))
     draw.rectangle((legend_x, legend_y + 77, legend_x + 28, legend_y + 91), outline=(230, 40, 40, 255), width=1)
     draw.text((legend_x + 36, legend_y + 76), "7 px clearance", fill=(30, 30, 30, 255))
+    draw.rectangle((legend_x, legend_y + 98, legend_x + 28, legend_y + 112), outline=(135, 75, 175, 255), width=2)
+    draw.text((legend_x + 36, legend_y + 97), "station bounds", fill=(30, 30, 30, 255))
     output.parent.mkdir(parents=True, exist_ok=True)
     image.save(output)
     return output

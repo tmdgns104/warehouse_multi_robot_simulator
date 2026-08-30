@@ -2,15 +2,16 @@ from collections import deque
 
 import pytest
 
-from warehouse_sim.facility_layout import MachineBlock, NetworkSegment
+from warehouse_sim.facility_layout import MachineBlock, NetworkSegment, Station
 from warehouse_sim.graph_planner import graph_astar
 from warehouse_sim.lane_graph import LaneEdge, LaneGraph, LaneNode
 from warehouse_sim.lane_safety import (
     LANE_SNAP_TOLERANCE,
-    BOTTOM_RETURN_CONNECTOR_IDS,
     OBSTACLE_CLEARANCE,
     RectangleObstacle,
     build_safe_lane_graph,
+    candidate_grid_segments,
+    driving_obstacles,
     machine_obstacle,
     machine_obstacles,
     point_inside_obstacle,
@@ -20,6 +21,7 @@ from warehouse_sim.lane_safety import (
     reference_visual_only_segments,
     segment_intersects_obstacle,
     snap_lane_gaps,
+    station_obstacle,
     unsafe_edges,
     unsafe_nodes,
     validate_lane_graph_safety,
@@ -49,6 +51,8 @@ def test_machine_obstacle_expands_by_entity_clearance():
     obstacle = machine_obstacle(MachineBlock("machine", 10, 20, 30, 40))
     assert OBSTACLE_CLEARANCE == 7.0
     assert obstacle == RectangleObstacle("machine", 3, 13, 47, 67)
+    station = station_obstacle(Station("station", 10, 20, 30, 40, (0, 0, 0)))
+    assert station == RectangleObstacle("station", 3, 13, 47, 67)
 
 
 def test_point_and_orthogonal_segment_obstacle_geometry():
@@ -73,21 +77,21 @@ def test_unsafe_node_and_edge_are_rejected():
         validate_lane_graph_safety(graph, obstacles)
 
 
-def test_reference_machine_crossings_are_relocated_to_free_aisles():
+def test_candidate_grid_is_pruned_around_machine_and_station_obstacles():
     layout = create_reference_layout()
-    obstacles = machine_obstacles(layout)
-    segments = {segment.id: segment for segment in reference_driving_segments(layout)}
-    assert {segments[name].start[0] for name in ("vertical_3", "vertical_5", "vertical_7")} == {389.0, 481.0, 578.5}
-    for name in ("vertical_3", "vertical_5", "vertical_7"):
-        segment = segments[name]
-        assert not any(segment_intersects_obstacle(segment.start, segment.end, item) for item in obstacles)
+    candidates = candidate_grid_segments(layout)
+    assert any(segment.start == (365, 112) and segment.end == (365, 648) for segment in candidates)
+    obstacles = driving_obstacles(layout)
+    surviving = reference_driving_segments(layout)
+    assert all(
+        not segment_intersects_obstacle(segment.start, segment.end, obstacle)
+        for segment in surviving
+        for obstacle in obstacles
+    )
+    assert any(segment.id.startswith("grid_v_3_part_") for segment in surviving)
 
 
-def test_small_loop_gaps_snap_but_obstacle_crossing_snap_does_not():
-    layout = create_reference_layout()
-    segments = {segment.id: segment for segment in reference_driving_segments(layout)}
-    assert segments["left_loop_b"].end == (259, 280)
-    assert segments["right_loop_b"].start == (932, 280)
+def test_small_gap_snap_cannot_cross_obstacle():
     assert LANE_SNAP_TOLERANCE == 2.0
 
     source = NetworkSegment("source", (0, 5), (8, 5))
@@ -100,24 +104,27 @@ def test_small_loop_gaps_snap_but_obstacle_crossing_snap_does_not():
 def test_safe_driving_graph_is_connected_and_routes_around_machines():
     layout = create_reference_layout()
     graph = build_safe_lane_graph(layout)
-    obstacles = machine_obstacles(layout)
+    obstacles = driving_obstacles(layout)
     assert component_count(graph) == 1
     assert not unsafe_nodes(graph, obstacles)
     assert not unsafe_edges(graph, obstacles)
-    route = graph_astar(graph, "lane_389_219", "lane_389_343")
+    route = graph_astar(graph, "lane_365_219", "lane_365_311")
     assert route is not None
-    assert "lane_389_311" in route
+    assert len(route) > 2
+    assert any(graph.node(node_id).x != 365 for node_id in route)
 
 
-def test_only_observed_central_aisles_connect_to_bottom_return():
-    segments = {segment.id: segment for segment in reference_driving_segments(create_reference_layout())}
-    assert BOTTOM_RETURN_CONNECTOR_IDS == {"vertical_5", "vertical_6", "vertical_7", "vertical_8"}
-    assert all(segments[name].end[1] == 648 for name in BOTTOM_RETURN_CONNECTOR_IDS)
-    assert segments["vertical_4"].end[1] == 618
-    assert segments["vertical_9"].end[1] == 618
-    tails = {segment.id: segment for segment in reference_visual_only_segments(create_reference_layout())}
-    assert tails["visual_tail_vertical_4"].start == (405, 618)
-    assert tails["visual_tail_vertical_4"].end == (405, 633)
+def test_bottom_grid_connects_each_safe_vertical_to_return_rail():
+    layout = create_reference_layout()
+    graph = build_safe_lane_graph(layout)
+    bottom_nodes = {node.x for node in graph.nodes if node.y == 648}
+    candidate_x = {
+        segment.start[0] for segment in candidate_grid_segments(layout)
+        if segment.start[0] == segment.end[0]
+    }
+    assert bottom_nodes == candidate_x
+    visual_ids = {segment.id for segment in reference_visual_only_segments(layout)}
+    assert visual_ids == {"top_cap_a", "top_cap_b", "top_cap_c"}
 
 
 def test_visual_only_network_style_cannot_be_confused_with_driving_lane():
@@ -148,7 +155,7 @@ def test_visual_only_network_style_cannot_be_confused_with_driving_lane():
 
 def test_reference_traffic_candidates_and_motion_stay_obstacle_safe():
     scenario = create_reference_traffic_scenario(16, seed=1234)
-    for _ in range(600):
+    for _ in range(1800):
         scenario.engine.update(1 / 60)
         scenario.engine.validate_safety()
     assert scenario.engine.metrics.obstacle_penetration_count == 0

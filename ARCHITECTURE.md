@@ -274,6 +274,24 @@ Safe LaneGraph edges + canonical LaneNode coordinates
 
 Renderer는 raw drivable `FacilityLayout.network`를 다시 그리지 않는다. 모든 driving line endpoint는 LaneNode 좌표에서 생성되므로 planner, motion, graph, renderer가 동일한 snap-normalized 좌표를 사용한다. Reference에서 bottom return 연결 근거가 없는 vertical은 y=618 driving junction에서 끝나고 y=618~633 tail만 회청색 visual-only로 보존한다. 따라서 bottom return과의 15px 간격은 끊어진 driving rail이 아니라 의도적으로 분리된 reference detail이다.
 
+#### V4.3 Candidate Grid and Obstacle Pruning
+
+```text
+Reference aisle X/Y
+      ↓
+Candidate Manhattan Grid
+      ↓
+expanded Machine + Station rectangle subtraction
+      ↓
+surviving orthogonal segments
+      ↓ snap / intersection split
+Canonical Safe LaneGraph
+      ↓
+Planner + Motion + Renderer
+```
+
+한 candidate가 장애물을 만났다고 전체 aisle을 제거하지 않고, 장애물 interval과 추가 1px 분리 구간만 잘라 양쪽의 안전한 segment를 보존한다. 이로써 Machine/Station을 관통하지 않으면서 상단 y=112, 좌우 x=226/x=962 outer rail, 중앙 cross aisle, 하단 y=555~648 return rail이 하나의 grid component를 이룬다. y=66 Upper Cap enclosure는 관찰된 주행 근거가 없어 visual-only로 남는다.
+
 ### 4.5 Task Manager
 
 Task는 이동 목적을 제공한다.
