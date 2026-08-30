@@ -26,8 +26,10 @@ class TaskState(str, Enum):
     QUEUED = "QUEUED"
     ASSIGNED = "ASSIGNED"
     MOVING_TO_SOURCE = "MOVING_TO_SOURCE"
+    WAITING_FOR_SOURCE = "WAITING_FOR_SOURCE"
     PICKING = "PICKING"
     MOVING_TO_DESTINATION = "MOVING_TO_DESTINATION"
+    WAITING_FOR_DESTINATION = "WAITING_FOR_DESTINATION"
     DROPPING = "DROPPING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -44,10 +46,15 @@ class LoadState(str, Enum):
 class RobotWorkState(str, Enum):
     IDLE = "IDLE"
     TO_PICKUP = "TO_PICKUP"
+    TO_SOURCE_STAGING = "TO_SOURCE_STAGING"
+    WAITING_SOURCE = "WAITING_SOURCE"
     PICKING = "PICKING"
     CARRYING = "CARRYING"
+    TO_DESTINATION_STAGING = "TO_DEST_STAGING"
+    WAITING_DESTINATION = "WAITING_DEST"
     DROPPING = "DROPPING"
     RETURNING = "RETURNING"
+    TASK_HOLDING = "TASK_HOLDING"
 
 
 @dataclass(frozen=True)
@@ -56,6 +63,7 @@ class WorkStation:
     role: str
     facility_id: str
     service_node_id: str
+    staging_node_ids: tuple[str, ...] = ()
 
 
 @dataclass
@@ -96,9 +104,15 @@ class FactoryTaskManager:
     _TRANSITIONS = {
         TaskState.QUEUED: {TaskState.ASSIGNED, TaskState.CANCELLED},
         TaskState.ASSIGNED: {TaskState.MOVING_TO_SOURCE, TaskState.FAILED},
-        TaskState.MOVING_TO_SOURCE: {TaskState.PICKING, TaskState.FAILED},
+        TaskState.MOVING_TO_SOURCE: {
+            TaskState.WAITING_FOR_SOURCE, TaskState.PICKING, TaskState.FAILED
+        },
+        TaskState.WAITING_FOR_SOURCE: {TaskState.PICKING, TaskState.FAILED},
         TaskState.PICKING: {TaskState.MOVING_TO_DESTINATION, TaskState.FAILED},
-        TaskState.MOVING_TO_DESTINATION: {TaskState.DROPPING, TaskState.FAILED},
+        TaskState.MOVING_TO_DESTINATION: {
+            TaskState.WAITING_FOR_DESTINATION, TaskState.DROPPING, TaskState.FAILED
+        },
+        TaskState.WAITING_FOR_DESTINATION: {TaskState.DROPPING, TaskState.FAILED},
         TaskState.DROPPING: {TaskState.COMPLETED, TaskState.FAILED},
         TaskState.COMPLETED: set(),
         TaskState.FAILED: set(),

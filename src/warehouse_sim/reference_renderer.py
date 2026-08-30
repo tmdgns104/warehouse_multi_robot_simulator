@@ -47,7 +47,8 @@ def factory_status_render_plan(engine) -> tuple[DrawCommand, ...]:
     for entity in engine.entities:
         state = engine.work_states[entity.id]
         x, y = entity.position(engine.graph)
-        if state == RobotWorkState.CARRYING:
+        if state in (RobotWorkState.CARRYING, RobotWorkState.TO_DESTINATION_STAGING,
+                     RobotWorkState.WAITING_DESTINATION):
             commands.append(DrawCommand(Primitive.RECT, (x - 2.5, y - 2.5, 5, 5), (250, 224, 82), outline=(78, 63, 28)))
         elif state in (RobotWorkState.PICKING, RobotWorkState.DROPPING):
             color = (245, 157, 52) if state == RobotWorkState.PICKING else (150, 79, 190)
@@ -114,18 +115,20 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
     _draw_pillow_commands(draw, factory_status_render_plan(engine), sx, sy)
     metrics = engine.factory_metrics
     lines = (
-        "V5 FACTORY FLOW",
+        "V5.2 FACTORY FLOW",
         f"QUEUE       {metrics.tasks_queued}",
         f"ACTIVE      {metrics.tasks_active}",
         f"COMPLETED   {metrics.tasks_completed}",
         f"PRODUCTIVE  {metrics.productive_utilization * 100:4.1f}%",
-        f"IDLE ROBOTS {metrics.idle_robot_count}",
+        f"TASK WAIT   {metrics.task_waiting_ratio * 100:4.1f}%",
+        f"ENGAGED     {metrics.engaged_ratio * 100:4.1f}%",
+        f"TRUE IDLE   {metrics.true_idle_robot_count}",
         f"LOADS MOVE  {metrics.loads_in_transit}",
     )
     for index, line in enumerate(lines):
         draw.text((995, 74 + index * 18), line, fill=(35, 35, 35))
-    robot_y = 205
-    for entity in engine.entities[:12]:
+    robot_y = 250
+    for entity in engine.entities[:16]:
         task_id = engine.robot_tasks[entity.id] or "-"
         text = f"{entity.id} {engine.work_states[entity.id].value:<10} {task_id}"
         draw.text((995, robot_y), text, fill=(45, 45, 45))
@@ -136,6 +139,10 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
             radius = 4
             draw.ellipse((node.x - radius, node.y - radius, node.x + radius, node.y + radius), fill=(255, 165, 0), outline=(50, 50, 50))
             draw.text((node.x + 6, node.y - 9), station.id, fill=(35, 35, 35))
+            for staging_id in station.staging_node_ids:
+                staging = engine.graph.node(staging_id)
+                draw.rectangle((staging.x - 3, staging.y - 3, staging.x + 3, staging.y + 3),
+                               fill=(40, 125, 190), outline=(30, 50, 70))
         debug_lines = (
             f"DIRECT HANDOFF {metrics.direct_task_handoffs}",
             f"PARK RETURNS   {metrics.parking_returns}",
@@ -144,9 +151,11 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
             f"BLOCK LIMIT    {metrics.assignment_blocked_max_active}",
             f"BLOCK NO IDLE  {metrics.assignment_blocked_no_idle_robot}",
             f"BLOCK NO ROUTE {metrics.assignment_blocked_no_route}",
+            f"STAGING BLOCK  {metrics.staging_capacity_blocks}",
+            f"LATE SERVICE   {metrics.late_service_reservations}",
         )
         for index, line in enumerate(debug_lines):
-            draw.text((995, 430 + index * 17), line, fill=(75, 40, 40))
+            draw.text((995, 520 + index * 17), line, fill=(75, 40, 40))
     output.parent.mkdir(parents=True, exist_ok=True)
     image.save(output)
     return output
@@ -169,7 +178,10 @@ class ReferenceLayoutUI:
         self.layout = layout
         self.size = size
         self.screen = pygame.display.set_mode(size, pygame.RESIZABLE)
-        pygame.display.set_caption("Warehouse Multi-Robot Traffic - V4")
+        pygame.display.set_caption(
+            "Warehouse Multi-Robot Factory - V5.2" if engine is not None and hasattr(engine, "factory_metrics")
+            else "Warehouse Multi-Robot Traffic - V4"
+        )
         self.clock = pygame.time.Clock()
         self.graph = graph
         self.engine = engine
@@ -262,12 +274,14 @@ class ReferenceLayoutUI:
             font = pygame.font.SysFont("consolas", max(9, round(12 * scale)))
             metrics = self.engine.factory_metrics
             panel_lines = (
-                "V5 FACTORY FLOW",
+                "V5.2 FACTORY FLOW",
                 f"QUEUE       {metrics.tasks_queued}",
                 f"ACTIVE      {metrics.tasks_active}",
                 f"COMPLETED   {metrics.tasks_completed}",
                 f"PRODUCTIVE  {metrics.productive_utilization * 100:4.1f}%",
-                f"IDLE ROBOTS {metrics.idle_robot_count}",
+                f"TASK WAIT   {metrics.task_waiting_ratio * 100:4.1f}%",
+                f"ENGAGED     {metrics.engaged_ratio * 100:4.1f}%",
+                f"TRUE IDLE   {metrics.true_idle_robot_count}",
                 f"LOADS MOVE  {metrics.loads_in_transit}",
             )
             panel_x = round(ox + 990 * scale)
@@ -275,8 +289,8 @@ class ReferenceLayoutUI:
             for index, line in enumerate(panel_lines):
                 label = font.render(line, True, (35, 35, 35))
                 self.screen.blit(label, (panel_x, panel_y + index * max(14, round(18 * scale))))
-            robot_y = panel_y + max(105, round(125 * scale))
-            for entity in self.engine.entities[:12]:
+            robot_y = panel_y + max(160, round(180 * scale))
+            for entity in self.engine.entities[:16]:
                 task_id = self.engine.robot_tasks[entity.id] or "-"
                 line = f"{entity.id} {self.engine.work_states[entity.id].value:<10} {task_id}"
                 label = font.render(line, True, (45, 45, 45))

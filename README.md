@@ -136,7 +136,9 @@ V4 화면 키:
 - `D`: LaneNode, Machine bounds, 7px clearance debug overlay 전환
 - `Q` 또는 `Esc`: 종료
 
-기본 실행은 V5 Factory Task Flow입니다. 16대 Robot 중 최대 10대가 deterministic Task를 수행하고 나머지는 IDLE pool로 유지됩니다.
+기본 실행은 V5.2 Full Fleet Engagement Factory Flow입니다. BUSY profile의 16대 Robot은
+모두 실제 MaterialTask를 배정받고 staging 또는 remote task holding에서 안전하게
+service 순서를 기다립니다.
 
 ```bash
 python app.py
@@ -160,6 +162,15 @@ python app.py --render-factory-debug evidence/v5_1_factory_dispatch_debug.png --
 ```
 
 Profile은 `light`, `normal`, `busy`, `stress`를 지원합니다. Productive utilization은 Task 단계만 포함하고 RETURNING은 repositioning으로 별도 집계합니다.
+
+V5.2는 source/destination staging과 late service reservation을 적용합니다. 오른쪽
+panel에서 M01~M16의 task ID, PRODUCTIVE, TASK WAIT, ENGAGED, TRUE IDLE을 확인할 수
+있습니다. Engagement는 assigned nonterminal MaterialTask가 있는 경우에만 인정됩니다.
+
+```bash
+python3 app.py --headless-factory 300 --entities 16 --seed 1234 --factory-profile busy
+python3 app.py --render-factory-debug evidence/v5_2_staging_queue_debug.png --motion-time 120
+```
 
 기존 V4 random traffic demo는 `python app.py --traffic-demo`로 보존됩니다.
 

@@ -339,6 +339,29 @@ COMPLETED + no safe task       -> parking return
 
 Source와 destination을 task 전체 기간 동안 동시에 잠그지 않는다. Destination은 pickup 완료 직전에 capacity를 확보하므로 service node 중복 점유를 막으면서 미래 destination을 과도하게 선점하지 않는다. Queue priority 순서는 유지하되 resource-blocked high-priority task는 일시적으로 건너뛴다. Productive(TO_PICKUP/PICKING/CARRYING/DROPPING), repositioning(RETURNING), idle 시간을 별도 적분한다.
 
+#### V5.2 Staging Queue and Late Service Reservation
+
+```text
+real MaterialTask assignment
+  -> source staging / remote TASK_HOLDING
+  -> late source service reservation -> PICK
+  -> destination staging / remote TASK_HOLDING
+  -> late destination service reservation -> DROP
+  -> direct real-task handoff
+```
+
+Assignment capacity와 physical service capacity를 분리한다. `WorkStation`은 capacity-1
+`service_node_id`와 복수 `staging_node_ids`를 가지며, 명시적인
+`station_reservations`, `staging_reservations`, source/destination wait queue가
+resource ownership의 source of truth다. Moving 또는 staging wait 자체는 service
+reservation이 아니다. Queue는 priority, created time, task ID로 deterministic하다.
+Staging이 없으면 robot은 실제 task ID를 유지한 채 safe graph node에서
+`TASK_HOLDING`하며 Traffic Controller를 우회하거나 dummy movement를 만들지 않는다.
+
+Engagement는 nonterminal assigned MaterialTask가 있는 경우에만 인정한다.
+Productive, factory task waiting, repositioning, true idle을 분리하고 10초 warm-up 이후
+minimum engaged와 maximum true idle을 측정한다.
+
 ### 4.6 Fleet Manager
 
 Fleet Manager는 `Agent -> Task -> Route -> Traffic Permission`을 연결한다.

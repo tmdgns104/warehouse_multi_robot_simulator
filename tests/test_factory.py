@@ -119,8 +119,8 @@ def test_factory_pickup_drop_timers_complete_task_and_return_robot_idle():
     assert any(state in (RobotWorkState.IDLE, RobotWorkState.RETURNING) for state in scenario.engine.work_states.values())
     event_names = [event.event for event in manager.events if event.task_id == completed.id]
     assert event_names == [
-        "QUEUED", "ASSIGNED", "MOVING_TO_SOURCE", "PICKING",
-        "MOVING_TO_DESTINATION", "DROPPING", "COMPLETED",
+        "QUEUED", "ASSIGNED", "MOVING_TO_SOURCE", "WAITING_FOR_SOURCE", "PICKING",
+        "MOVING_TO_DESTINATION", "WAITING_FOR_DESTINATION", "DROPPING", "COMPLETED",
     ]
 
 
@@ -139,13 +139,13 @@ def test_factory_continuously_generates_and_assigns_next_tasks_without_random_go
 
 def test_sixteen_robot_factory_keeps_traffic_and_load_invariants():
     scenario = create_reference_factory_scenario(16, seed=1234)
-    advance(scenario.engine, 30)
+    advance(scenario.engine, 60)
     factory = scenario.engine.factory_metrics
     traffic = scenario.engine.traffic.metrics
     assert factory.tasks_created > 0
     assert factory.tasks_completed > 0
     assert 0 < factory.robot_utilization < 1
-    assert factory.idle_robot_count >= 1
+    assert factory.true_idle_robot_count == 0
     assert factory.failed_tasks == 0
     assert traffic.head_on_conflict_count == 0
     assert traffic.deadlock_count == 0
@@ -209,8 +209,8 @@ def test_direct_handoff_reuses_completed_robot_without_parking_trip():
     advance(scenario.engine, 100)
     metrics = scenario.engine.factory_metrics
     assert metrics.direct_task_handoffs > 0
-    assert metrics.direct_task_handoffs < metrics.tasks_completed
-    assert metrics.parking_returns > 0
+    assert metrics.direct_task_handoffs == metrics.tasks_completed
+    assert metrics.parking_returns == 0
 
 
 def test_utilization_separates_productive_repositioning_and_idle_time():
@@ -218,12 +218,12 @@ def test_utilization_separates_productive_repositioning_and_idle_time():
     advance(scenario.engine, 60)
     metrics = scenario.engine.factory_metrics
     assert metrics.productive_utilization > 0
-    assert metrics.repositioning_utilization > 0
-    assert metrics.idle_ratio > 0
+    assert metrics.task_waiting_ratio > 0
+    assert metrics.true_idle_ratio == 0
     assert metrics.robot_utilization == pytest.approx(
-        metrics.productive_utilization + metrics.repositioning_utilization
+        metrics.productive_utilization + metrics.task_waiting_ratio + metrics.repositioning_utilization
     )
-    assert metrics.productive_utilization + metrics.repositioning_utilization + metrics.idle_ratio == pytest.approx(1)
+    assert metrics.productive_utilization + metrics.task_waiting_ratio + metrics.repositioning_utilization + metrics.idle_ratio == pytest.approx(1)
 
 
 def test_busy_profile_improves_task_participation_without_random_motion():
@@ -235,7 +235,7 @@ def test_busy_profile_improves_task_participation_without_random_motion():
     assert metrics.average_active_robots > 5
     assert metrics.queued_but_dispatchable == 0
     assert metrics.queued_but_blocked == metrics.tasks_queued
-    assert metrics.assignment_blocked_station > 0
+    assert metrics.staging_capacity_blocks > 0
     assert metrics.assignment_blocked_no_route == 0
     assert scenario.engine.traffic.looping is False
 
@@ -249,3 +249,87 @@ def test_robot_is_never_double_assigned_during_busy_factory_operation():
     ]
     assert len(assigned) == len(set(assigned))
     scenario.engine.task_manager.validate_load_integrity()
+
+
+def test_busy_profile_assigns_real_tasks_to_every_robot_after_warmup():
+    scenario = create_reference_factory_scenario(16, seed=1234, profile="busy")
+    advance(scenario.engine, 20)
+    metrics = scenario.engine.factory_metrics
+    assert metrics.true_idle_robot_count == 0
+    assert metrics.average_true_idle_robots == 0
+    assert metrics.min_engaged_robots_after_warmup == 16
+    assert metrics.engaged_ratio == pytest.approx(1)
+    assert all(scenario.engine.robot_tasks[entity.id] for entity in scenario.engine.entities)
+
+
+def test_source_busy_does_not_prevent_real_task_assignment():
+    scenario = create_reference_factory_scenario(4, seed=22, profile="busy")
+    scenario.engine.update(0.05)
+    assert len(scenario.engine.task_manager.active) == 4
+    assert all(scenario.engine.robot_tasks[entity.id] for entity in scenario.engine.entities)
+    assert len(scenario.engine.station_reservations) <= len(scenario.engine.stations)
+
+
+def test_staging_and_service_reservations_are_exclusive_and_safe():
+    scenario = create_reference_factory_scenario(16, seed=1234, profile="busy")
+    advance(scenario.engine, 60)
+    engine = scenario.engine
+    assert len(engine.station_reservations.values()) == len(set(engine.station_reservations.values()))
+    assert len(engine.staging_reservations.values()) == len(set(engine.staging_reservations.values()))
+    assert set(engine.staging_reservations).isdisjoint(
+        station.service_node_id for station in engine.stations.values()
+    )
+    engine._validate_factory_reservations()
+
+
+def test_completed_tasks_leave_no_factory_reservations():
+    scenario = create_reference_factory_scenario(8, seed=31, profile="busy")
+    advance(scenario.engine, 120)
+    completed = {task.id for task in scenario.engine.task_manager.completed}
+    assert completed
+    assert completed.isdisjoint(scenario.engine.station_reservations.values())
+    assert completed.isdisjoint(scenario.engine.staging_reservations.values())
+
+
+def test_reset_clears_explicit_factory_reservations_and_wait_queues():
+    scenario = create_reference_factory_scenario(8, seed=17, profile="busy")
+    advance(scenario.engine, 20)
+    scenario.engine.reset()
+    assert not scenario.engine.station_reservations
+    assert not scenario.engine.staging_reservations
+    assert not any(scenario.engine.source_wait_queues.values())
+    assert not any(scenario.engine.destination_wait_queues.values())
+
+
+def test_wait_queue_order_is_priority_then_created_time_then_id():
+    scenario = create_reference_factory_scenario(2, seed=7, profile="busy")
+    engine = scenario.engine
+    tasks = list(engine.task_manager.queued[:3])
+    for task in tasks:
+        task.source_station_id = "IN_A"
+    tasks[0].priority, tasks[1].priority, tasks[2].priority = 1, 3, 3
+    tasks[1].created_time = tasks[2].created_time
+    queue = []
+    engine.source_wait_queues["IN_A"] = queue
+    for task in reversed(tasks):
+        engine._enqueue(engine.source_wait_queues, "IN_A", task.id)
+    assert queue == sorted((task.id for task in tasks), key=engine._queue_key)
+
+
+def test_engagement_never_counts_robot_without_nonterminal_task():
+    scenario = create_reference_factory_scenario(16, seed=1234, profile="busy")
+    advance(scenario.engine, 20)
+    for entity in scenario.engine.entities:
+        assert scenario.engine._engaged(entity.id)
+        task = scenario.engine.task_manager.tasks[scenario.engine.robot_tasks[entity.id]]
+        assert task.assigned_robot_id == entity.id
+        assert task.state not in {TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELLED}
+
+
+def test_late_service_reservation_occurs_after_staging_wait():
+    scenario = create_reference_factory_scenario(8, seed=44, profile="busy")
+    advance(scenario.engine, 40)
+    metrics = scenario.engine.factory_metrics
+    assert metrics.late_service_reservations > 0
+    assert metrics.max_station_queue_length > 0
+    assert metrics.true_idle_robot_count == 0

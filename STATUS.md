@@ -2,9 +2,9 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V5.1
-Current Phase: TASK-009A Implemented / Automated PASS / Human Factory Utilization Verification Required
-Current Task: TASK-009A - Factory Dispatch & Robot Utilization Tuning
+Current Version: V5.2
+Current Phase: TASK-009B Implemented / Automated PASS / Human Full Fleet Engagement Verification Required
+Current Task: TASK-009B - Staging Queue & Late Station Reservation
 
 ## Final Goal
 
@@ -355,3 +355,29 @@ TASK-009 IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN FACTORY FLOW VERIFICA
 - safety violations: 0
 
 TASK-009A IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN FACTORY UTILIZATION VERIFICATION REQUIRED. TASK-010 이상은 시작하지 않았다.
+
+## TASK-009B Result
+
+Human은 TASK-009A GUI에서 backlog가 있는데도 Robot이 너무 많이 IDLE이라고 판단했다.
+TASK-009B는 task assignment와 physical service capacity를 분리해 이 gate를 이어받았다.
+
+- Source/destination별 obstacle-safe staging node와 deterministic wait queue
+- 명시적 service/staging reservation; staged service entry 시점의 late reservation
+- staging 부족 시 실제 task를 유지하는 safe remote `TASK_HOLDING`
+- BUSY full assignment, RETURNING 재투입, completion direct handoff
+- 10초 warm-up 이후 true idle/engagement metric과 M01~M16 panel
+- Full regression: 79 PASS
+
+16 robots / 300 seconds / seed 1234 / busy:
+
+- completed checkpoints: 27 / 57 / 87
+- productive / task waiting / engaged: 0.6971 / 0.3029 / 1.0000
+- average true idle robots: 0.000
+- min engaged / max true idle after warm-up: 16 / 0
+- direct handoffs / parking returns: 87 / 0
+- collision/head-on/deadlock/obstacle penetration/current indefinite wait: 0
+
+24 robots / 300 seconds completed 82 tasks with engaged ratio 1.0000 and safety 0.
+Cycle time 96.642 seconds는 남은 physical contention을 보여준다.
+
+TASK-009B IMPLEMENTED / AUTOMATED PASS / HUMAN FULL FLEET ENGAGEMENT VERIFICATION REQUIRED. TASK-010은 시작하지 않았다.

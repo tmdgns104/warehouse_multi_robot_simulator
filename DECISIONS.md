@@ -160,3 +160,16 @@ V7까지 화면 위치는 내부 Simulation State에서 나온다.
 V11 이후에는 Gazebo의 실제 Robot 상태(`/odom`, TF 등)가 Dashboard 위치의 Source of Truth가 된다.
 
 이를 통해 2D 화면과 3D Gazebo가 같은 Robot 상태를 표현하도록 한다.
+
+---
+
+## ADR-014 - Task Assignment와 Station Service Capacity 분리
+
+Status: Accepted
+
+Robot에게 실제 MaterialTask를 배정하는 것은 Station service node를 점유하는 것과
+다르다. Source/destination staging 및 remote holding에서 기다릴 수 있으며 service는
+entry permission 시점부터 pickup/drop 종료까지만 명시적으로 예약한다.
+
+`TASK_HOLDING`은 assigned nonterminal task가 있는 factory resource wait이며 IDLE이나
+dummy patrol이 아니다. 모든 이동은 기존 Traffic Controller와 Safe LaneGraph를 따른다.

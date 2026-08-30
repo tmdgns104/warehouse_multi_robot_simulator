@@ -1,0 +1,52 @@
+TASK-009B / V5.2 Full Fleet Engagement Stress Evidence
+Seed: 1234
+Step: 1/60 second
+Warm-up: 10 seconds
+
+BEFORE
+V5, 16 robots / 300 seconds
+completed=46 productive_ratio=not separated legacy_utilization=0.2710
+active_end=3 idle_end=11 cycle_time=50.066 pickup_wait=4.735
+
+V5.1, 16 robots / 300 seconds
+completed=70 productive_ratio=0.4291 idle_ratio=0.4412
+average_idle=7.059 direct_handoffs=22 parking_returns=48
+cycle_time=60.350 pickup_wait=14.283 safety_violations=0
+
+V5.1, 24 robots / 300 seconds
+completed=8 productive_ratio=0.2627 idle_ratio=0.7285 average_idle=17.483
+safety_violations=0
+
+V5.2 ACCEPTANCE: 16 robots / 300 seconds / busy
+completion_checkpoints_100_200_300=27,57,87
+tasks_created=115 tasks_completed=87 tasks_active=16 tasks_queued=12
+productive_ratio=0.6971 task_waiting_ratio=0.3029 engaged_ratio=1.0000
+true_idle_ratio=0.0000 average_true_idle_robots=0.000
+min_engaged_after_warmup=16 max_true_idle_after_warmup=0
+direct_handoffs=87 parking_returns=0
+average_cycle_time=80.600 average_pickup_wait=25.081
+source_wait_robot_seconds=46.483 destination_wait_robot_seconds=40.867
+holding_robot_seconds=1366.733 staging_capacity_blocks=81
+late_service_reservations=184
+collision=0 head_on=0 deadlock=0 obstacle_penetration=0 indefinite_wait_current=0
+failed_tasks=0 reservation_leaks=0 duplicate_load_ownership=0
+
+V5.2 SCALABILITY: 24 robots / 300 seconds / busy
+completion_checkpoints_100_200_300=27,54,82
+tasks_created=118 tasks_completed=82 tasks_active=24 tasks_queued=12
+productive_ratio=0.5644 task_waiting_ratio=0.4355 engaged_ratio=1.0000
+true_idle_ratio=0.0000 average_true_idle_robots=0.000
+min_engaged_after_warmup=24 max_true_idle_after_warmup=0
+direct_handoffs=82 parking_returns=0
+average_cycle_time=96.642 average_pickup_wait=35.509
+source_wait_robot_seconds=55.800 destination_wait_robot_seconds=93.450
+holding_robot_seconds=2986.700 staging_capacity_blocks=131
+late_service_reservations=186
+collision=0 head_on=0 deadlock=0 obstacle_penetration=0 indefinite_wait_current=0
+failed_tasks=0 reservation_leaks=0 duplicate_load_ownership=0
+
+Interpretation
+- Every engaged robot owns exactly one real nonterminal MaterialTask.
+- TASK_HOLDING is remote resource waiting at a safe graph node, not patrol or dummy motion.
+- Service capacity remains one; assignment capacity is independent.
+- Higher engagement improves 24-robot completion dramatically, but contention increases cycle time.

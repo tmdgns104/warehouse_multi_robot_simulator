@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .factory import FactoryConfig, FactoryEngine, FactoryProfile, factory_config_for_profile
+from .graph_planner import graph_astar
 from .lane_safety import driving_obstacles
 from .reference_traffic_scenario import create_reference_traffic_scenario
 from .task_manager import WorkStation
@@ -26,6 +27,26 @@ def _service_node(graph, x: float, y: float, used: set[str]) -> str:
     node = next(node for node in candidates if node.id not in used and len(graph.neighbors(node.id)) >= 2)
     used.add(node.id)
     return node.id
+
+
+def _staging_nodes(graph, service_node_id: str, used: set[str], count: int = 2) -> tuple[str, ...]:
+    """Choose nearby non-junction lane nodes so waiting does not occupy a hub."""
+    service = graph.node(service_node_id)
+    candidates = sorted(
+        (
+            node for node in graph.nodes
+            if node.id not in used
+            and node.id != service_node_id
+            and 1 <= len(graph.neighbors(node.id)) <= 3
+            and graph_astar(graph, node.id, service_node_id) is not None
+        ),
+        key=lambda node: (abs(node.x - service.x) + abs(node.y - service.y), node.id),
+    )
+    selected = tuple(node.id for node in candidates[:count])
+    if len(selected) != count:
+        raise ValueError(f"Not enough safe staging nodes for {service_node_id}")
+    used.update(selected)
+    return selected
 
 
 def create_reference_factory_scenario(
@@ -65,9 +86,13 @@ def create_reference_factory_scenario(
         ("BUFFER_B", "BUFFER", "machine_0_3", 640, 219),
         ("OUT_B", "OUTPUT", "machine_2_5", 862, 555),
     )
+    station_specs = []
+    for identifier, role, facility_id, x, y in specs:
+        service = _service_node(base.graph, x, y, used)
+        station_specs.append((identifier, role, facility_id, service))
     stations = tuple(
-        WorkStation(identifier, role, facility_id, _service_node(base.graph, x, y, used))
-        for identifier, role, facility_id, x, y in specs
+        WorkStation(identifier, role, facility_id, service, _staging_nodes(base.graph, service, used))
+        for identifier, role, facility_id, service in station_specs
     )
     flows = (
         ("IN_A", "PROC_A", "QC_A", "OUT_A"),
