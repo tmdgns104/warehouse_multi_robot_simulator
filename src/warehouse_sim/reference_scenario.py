@@ -13,8 +13,13 @@ from .facility_layout import (
 )
 
 
-def _segment(identifier, x1, y1, x2, y2, width=1.0):
-    return NetworkSegment(identifier, (x1, y1), (x2, y2), width=width)
+VISUAL_ONLY_NETWORK_COLOR = (172, 187, 196)
+
+
+def _segment(identifier, x1, y1, x2, y2, width=1.0, drivable=True, color=(218, 133, 145)):
+    return NetworkSegment(
+        identifier, (x1, y1), (x2, y2), color=color, width=width, drivable=drivable
+    )
 
 
 def create_reference_layout() -> FacilityLayout:
@@ -59,11 +64,13 @@ def create_reference_layout() -> FacilityLayout:
         network.append(_segment(f"vertical_{index}", x, top, x, 633, 0.85))
     # Top cap and small black-marker enclosure.
     network.extend((
-        _segment("top_left", 286, 112, 561, 112),
-        _segment("top_right", 684, 112, 869, 112),
-        _segment("top_cap_a", 500, 66, 684, 66),
-        _segment("top_cap_b", 500, 66, 500, 112),
-        _segment("top_cap_c", 684, 66, 684, 112),
+        # Video review shows no MobileEntity using this enclosure. Keep it as
+        # visual facility detail, not as an artificial driving component.
+        _segment("top_left", 286, 112, 561, 112, drivable=False, color=VISUAL_ONLY_NETWORK_COLOR),
+        _segment("top_right", 684, 112, 869, 112, drivable=False, color=VISUAL_ONLY_NETWORK_COLOR),
+        _segment("top_cap_a", 500, 66, 684, 66, drivable=False, color=VISUAL_ONLY_NETWORK_COLOR),
+        _segment("top_cap_b", 500, 66, 500, 112, drivable=False, color=VISUAL_ONLY_NETWORK_COLOR),
+        _segment("top_cap_c", 684, 66, 684, 112, drivable=False, color=VISUAL_ONLY_NETWORK_COLOR),
         _segment("left_loop_a", 226, 190, 226, 280),
         _segment("left_loop_b", 226, 280, 258, 280),
         _segment("left_loop_c", 226, 343, 226, 404),

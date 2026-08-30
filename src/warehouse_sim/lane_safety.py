@@ -1,0 +1,226 @@
+"""Obstacle-aware construction and validation for the reference driving graph."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import hypot
+from typing import Iterable
+
+from .facility_layout import FacilityLayout, MachineBlock, NetworkSegment, Point
+from .lane_graph import LaneEdge, LaneGraph, lane_graph_from_segments
+
+# V4 entities are at most 11 px wide.  Their 5.5 px half-footprint plus 1.5 px
+# of drawing/floating-point tolerance keeps their centres at least 7 px away.
+OBSTACLE_CLEARANCE = 7.0
+LANE_SNAP_TOLERANCE = 2.0
+# Rechecked video frames show lower moving objects aligned with these central
+# exits. Other 15 px stubs remain unchanged rather than inventing connectors.
+BOTTOM_RETURN_CONNECTOR_IDS = frozenset({"vertical_5", "vertical_6", "vertical_7", "vertical_8"})
+
+
+@dataclass(frozen=True)
+class RectangleObstacle:
+    id: str
+    left: float
+    top: float
+    right: float
+    bottom: float
+
+
+@dataclass(frozen=True)
+class EndpointGap:
+    source_segment: str
+    target_segment: str
+    source_point: Point
+    projected_point: Point
+    distance: float
+
+
+def machine_obstacle(machine: MachineBlock, clearance: float = OBSTACLE_CLEARANCE) -> RectangleObstacle:
+    return RectangleObstacle(
+        machine.id,
+        machine.x - clearance,
+        machine.y - clearance,
+        machine.x + machine.width + clearance,
+        machine.y + machine.height + clearance,
+    )
+
+
+def machine_obstacles(layout: FacilityLayout, clearance: float = OBSTACLE_CLEARANCE) -> tuple[RectangleObstacle, ...]:
+    return tuple(machine_obstacle(machine, clearance) for machine in layout.machines)
+
+
+def point_inside_obstacle(point: Point, obstacle: RectangleObstacle) -> bool:
+    return obstacle.left <= point[0] <= obstacle.right and obstacle.top <= point[1] <= obstacle.bottom
+
+
+def segment_intersects_obstacle(start: Point, end: Point, obstacle: RectangleObstacle) -> bool:
+    """Return whether an orthogonal segment touches or enters a closed obstacle."""
+    if start[0] != end[0] and start[1] != end[1]:
+        raise ValueError("Obstacle validation requires an orthogonal segment")
+    if start[0] == end[0]:
+        x = start[0]
+        low, high = sorted((start[1], end[1]))
+        return obstacle.left <= x <= obstacle.right and low <= obstacle.bottom and high >= obstacle.top
+    y = start[1]
+    low, high = sorted((start[0], end[0]))
+    return obstacle.top <= y <= obstacle.bottom and low <= obstacle.right and high >= obstacle.left
+
+
+def _is_safe_segment(segment: NetworkSegment, obstacles: Iterable[RectangleObstacle]) -> bool:
+    return not any(segment_intersects_obstacle(segment.start, segment.end, obstacle) for obstacle in obstacles)
+
+
+def _relocate_unsafe_verticals(
+    segments: tuple[NetworkSegment, ...], obstacles: tuple[RectangleObstacle, ...]
+) -> tuple[NetworkSegment, ...]:
+    """Move an unsafe reference vertical into the adjacent free aisle.
+
+    The aisle centre is derived from the expanded machine boundary and the
+    nearest safe vertical on its right, rather than copied as a second set of
+    reference coordinates. Cross aisles retain connectivity between columns.
+    """
+    safe_vertical_x = sorted({
+        segment.start[0]
+        for segment in segments
+        if segment.start[0] == segment.end[0] and _is_safe_segment(segment, obstacles)
+    })
+    repaired = []
+    for segment in segments:
+        if segment.start[0] != segment.end[0] or _is_safe_segment(segment, obstacles):
+            repaired.append(segment)
+            continue
+        crossed = [
+            obstacle for obstacle in obstacles
+            if segment_intersects_obstacle(segment.start, segment.end, obstacle)
+        ]
+        right_boundary = max(obstacle.right for obstacle in crossed)
+        right_lane = next((x for x in safe_vertical_x if x > right_boundary), None)
+        if right_lane is None:
+            raise ValueError(f"No safe aisle found for {segment.id}")
+        aisle_x = (right_boundary + right_lane) / 2
+        candidate = NetworkSegment(
+            segment.id, (aisle_x, segment.start[1]), (aisle_x, segment.end[1]),
+            segment.color, segment.width, segment.drivable,
+        )
+        if not _is_safe_segment(candidate, obstacles):
+            raise ValueError(f"Derived aisle remains unsafe: {segment.id}")
+        repaired.append(candidate)
+    return tuple(repaired)
+
+
+def _connect_observed_bottom_aisles(segments: tuple[NetworkSegment, ...]) -> tuple[NetworkSegment, ...]:
+    bottom_y = max(
+        segment.start[1]
+        for segment in segments
+        if segment.start[1] == segment.end[1]
+    )
+    connected = []
+    for segment in segments:
+        if segment.id in BOTTOM_RETURN_CONNECTOR_IDS:
+            low, high = sorted((segment.start[1], segment.end[1]))
+            if low <= bottom_y and high < bottom_y:
+                start = segment.start if segment.start[1] == low else segment.end
+                end = (start[0], bottom_y)
+                connected.append(NetworkSegment(
+                    segment.id, start, end, segment.color, segment.width, segment.drivable
+                ))
+                continue
+        connected.append(segment)
+    return tuple(connected)
+
+
+def snap_lane_gaps(
+    segments: tuple[NetworkSegment, ...], obstacles: tuple[RectangleObstacle, ...]
+) -> tuple[NetworkSegment, ...]:
+    """Snap only perpendicular endpoint-to-corridor gaps within tolerance."""
+    result = []
+    for segment in segments:
+        points = [segment.start, segment.end]
+        vertical = segment.start[0] == segment.end[0]
+        for index, point in enumerate(points):
+            candidates = []
+            for target in segments:
+                target_vertical = target.start[0] == target.end[0]
+                if target.id == segment.id or target_vertical == vertical:
+                    continue
+                if target_vertical:
+                    low, high = sorted((target.start[1], target.end[1]))
+                    projection = (target.start[0], point[1])
+                    on_target = low <= point[1] <= high
+                else:
+                    low, high = sorted((target.start[0], target.end[0]))
+                    projection = (point[0], target.start[1])
+                    on_target = low <= point[0] <= high
+                distance = hypot(projection[0] - point[0], projection[1] - point[1])
+                if on_target and 0 < distance <= LANE_SNAP_TOLERANCE:
+                    connector = NetworkSegment("snap_check", point, projection)
+                    if _is_safe_segment(connector, obstacles):
+                        candidates.append((distance, target.id, projection))
+            if candidates:
+                points[index] = min(candidates)[2]
+        result.append(NetworkSegment(
+            segment.id, points[0], points[1], segment.color, segment.width, segment.drivable
+        ))
+    return tuple(result)
+
+
+def perpendicular_endpoint_gaps(
+    segments: Iterable[NetworkSegment], tolerance: float = LANE_SNAP_TOLERANCE
+) -> tuple[EndpointGap, ...]:
+    """Audit visible near-misses between perpendicular driving segments."""
+    segments = tuple(segments)
+    gaps = []
+    for source in segments:
+        source_vertical = source.start[0] == source.end[0]
+        for point in (source.start, source.end):
+            for target in segments:
+                target_vertical = target.start[0] == target.end[0]
+                if source.id == target.id or source_vertical == target_vertical:
+                    continue
+                if target_vertical:
+                    low, high = sorted((target.start[1], target.end[1]))
+                    projection = (target.start[0], point[1])
+                    on_target = low <= point[1] <= high
+                else:
+                    low, high = sorted((target.start[0], target.end[0]))
+                    projection = (point[0], target.start[1])
+                    on_target = low <= point[0] <= high
+                distance = hypot(projection[0] - point[0], projection[1] - point[1])
+                if on_target and 0 < distance <= tolerance:
+                    gaps.append(EndpointGap(source.id, target.id, point, projection, distance))
+    return tuple(gaps)
+
+
+def reference_driving_segments(layout: FacilityLayout) -> tuple[NetworkSegment, ...]:
+    obstacles = machine_obstacles(layout)
+    drivable = tuple(segment for segment in layout.network if segment.drivable)
+    repaired = _relocate_unsafe_verticals(drivable, obstacles)
+    return snap_lane_gaps(_connect_observed_bottom_aisles(repaired), obstacles)
+
+
+def build_safe_lane_graph(layout: FacilityLayout) -> LaneGraph:
+    graph = lane_graph_from_segments(reference_driving_segments(layout))
+    validate_lane_graph_safety(graph, machine_obstacles(layout))
+    return graph
+
+
+def unsafe_nodes(graph: LaneGraph, obstacles: Iterable[RectangleObstacle]):
+    obstacles = tuple(obstacles)
+    return tuple(node for node in graph.nodes if any(point_inside_obstacle(node.position, item) for item in obstacles))
+
+
+def unsafe_edges(graph: LaneGraph, obstacles: Iterable[RectangleObstacle]):
+    obstacles = tuple(obstacles)
+    return tuple(
+        edge for edge in graph.edges
+        if any(segment_intersects_obstacle(graph.node(edge.source).position, graph.node(edge.target).position, item) for item in obstacles)
+    )
+
+
+def validate_lane_graph_safety(graph: LaneGraph, obstacles: Iterable[RectangleObstacle]) -> None:
+    obstacles = tuple(obstacles)
+    bad_nodes = unsafe_nodes(graph, obstacles)
+    bad_edges = unsafe_edges(graph, obstacles)
+    if bad_nodes or bad_edges:
+        raise ValueError(f"Unsafe lane graph: nodes={len(bad_nodes)} edges={len(bad_edges)}")

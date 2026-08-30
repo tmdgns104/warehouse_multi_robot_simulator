@@ -243,6 +243,21 @@ hard Node+Edge reservation at actual entry
 
 Soft reservation은 미래 의도를 표현하고 route/speed 비용에만 영향을 준다. 실제 안전성은 hard reservation이 보장한다. Wait-for cycle이 예상되면 alternate route를 탐색한다. Reroute는 3초 cooldown과 10% 비용 개선 조건으로 oscillation을 제한한다.
 
+#### V4.1 Obstacle-safe Lane Topology
+
+```text
+FacilityLayout
+  ├─ MachineBlock -> expanded RectangleObstacle (7 px)
+  └─ NetworkSegment (drivable / visual-only)
+              ↓ obstacle-aware aisle repair + safe 2 px snap
+         Safe LaneGraph
+              ├─ geometry validation
+              ├─ TrafficMotionEngine
+              └─ network_segments() -> Renderer
+```
+
+7px clearance는 V4 최대 Entity 폭 11px의 반폭 5.5px와 1.5px 수치/렌더링 여유의 합이다. Machine을 관통하던 세 vertical은 확장 경계와 다음 안전 vertical 사이의 aisle 중심을 데이터에서 계산한다. 상단 cap은 관찰된 MobileEntity 주행 근거가 없어 `drivable=False`인 회청색 시각 구조로 유지한다. Reference 여러 시점의 하단 이동 객체와 정렬되는 중앙 `vertical_5`~`vertical_8`만 기존 centerline 그대로 bottom return에 연결한다. 나머지 15px stub은 주행 근거가 없어 연결하지 않는다. Machine 내부 장식선은 짙은 청색 equipment primitive이며 Station/Marker의 통행 불가 의미도 확인되지 않아 obstacle로 승격하지 않는다.
+
 ### 4.5 Task Manager
 
 Task는 이동 목적을 제공한다.

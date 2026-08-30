@@ -46,7 +46,9 @@ def build_render_plan(
             DrawCommand(Primitive.RECT, (machine.x, machine.y, machine.width, machine.height), (226, 239, 238)),
             DrawCommand(Primitive.RECT, (machine.x + 3, machine.y + 2, machine.width - 8, machine.height - 4), base),
             DrawCommand(Primitive.RECT, (machine.x + machine.width - 8, machine.y + 2, 5, machine.height - 4), (103, 199, 229)),
-            DrawCommand(Primitive.LINE, (machine.x + machine.width / 2, machine.y + 1, machine.x + machine.width / 2, machine.y + machine.height - 1), (235, 73, 75), 2.2),
+            # This is machine decoration, not a drivable lane. A dark equipment
+            # color prevents it from reading as the pale-red traffic network.
+            DrawCommand(Primitive.LINE, (machine.x + machine.width / 2, machine.y + 1, machine.x + machine.width / 2, machine.y + machine.height - 1), (35, 72, 112), 2.2),
         ))
     for entity in layout.entities if include_entities else ():
         primitive = {

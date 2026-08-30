@@ -8,7 +8,8 @@ from math import hypot
 
 from .facility_layout import EntityShape, FacilityLayout
 from .graph_planner import graph_astar
-from .lane_graph import LaneGraph, lane_graph_from_segments
+from .lane_graph import LaneGraph
+from .lane_safety import build_safe_lane_graph, machine_obstacles
 from .motion import LaneMobileEntity
 from .reference_scenario import create_reference_layout
 from .traffic_simulation import TrafficMotionEngine
@@ -37,7 +38,7 @@ def create_reference_traffic_scenario(
         raise ValueError(f"entity_count cannot exceed {MAX_ENTITY_COUNT}")
 
     layout = create_reference_layout()
-    graph = lane_graph_from_segments(layout.network)
+    graph = build_safe_lane_graph(layout)
     randomizer = random.Random(seed)
     candidates = [
         node
@@ -108,5 +109,6 @@ def create_reference_traffic_scenario(
             TrafficZone("middle", frozenset(node.id for node in candidates if 311 <= node.y < 555), 8),
             TrafficZone("lower", frozenset(node.id for node in candidates if node.y >= 555), 6),
         ),
+        obstacles=machine_obstacles(layout),
     )
     return ReferenceTrafficScenario(layout, graph, engine)

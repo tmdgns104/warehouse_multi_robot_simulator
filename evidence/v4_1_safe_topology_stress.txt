@@ -1,0 +1,18 @@
+V4.1 safe topology stress verification
+seed=1234
+
+Topology:
+driving_segments=37 nodes=213 edges=355 components=1
+unsafe_nodes=0 unsafe_edges=0 clearance_px=7 snap_tolerance_px=2
+
+16 entities / 300 simulated seconds:
+completed_trips=272 moving_ratio=0.9889 average_speed=36.655
+average_wait=3.045 max_wait=2.617 reroutes=195 stopped_over_5s=0
+collisions=0 head_on=0 deadlocks=0 indefinite_wait=0 obstacle_penetrations=0
+throughput_per_min=54.400
+
+24 entities / 300 simulated seconds:
+completed_trips=395 moving_ratio=0.9309 average_speed=36.045
+average_wait=20.469 max_wait=5.017 reroutes=543 stopped_over_5s=15
+collisions=0 head_on=0 deadlocks=0 indefinite_wait=0 obstacle_penetrations=0
+throughput_per_min=79.000

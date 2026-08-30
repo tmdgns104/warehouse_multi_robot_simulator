@@ -3,8 +3,8 @@
 Project: Warehouse Multi-Robot Simulator
 
 Current Version: V4
-Current Phase: V4 Predictive Traffic Implemented / Automated PASS / Human Verification Required
-Current Task: TASK-008 - Predictive Multi-Agent Traffic Control Complete
+Current Phase: V4.1 Human GUI Revision Implemented / Automated PASS / Human Topology Verification Required
+Current Task: TASK-008A - Awaiting Human Topology Verification
 
 ## Final Goal
 
@@ -180,3 +180,40 @@ TASK-009 이상은 시작하지 않았다.
 - collisions/head-on/deadlocks/indefinite waits: 0
 
 Automated verification is PASS for required 16-entity acceptance. Human pygame verification is REQUIRED. TASK-009 이상은 시작하지 않았다.
+
+## TASK-008A Result
+
+Human이 발견한 Machine 관통 주행과 작은 topology gap을 수정했다.
+
+- Machine expanded obstacle clearance: 7px
+- Safe endpoint snap tolerance: 2px
+- `vertical_3`, `vertical_5`, `vertical_7`: Machine 오른쪽 free aisle로 data-driven 재배치
+- left/right loop 1px/2px gap: obstacle-safe snap
+- Upper Cap: MobileEntity 주행 Evidence가 없어 회청색 visual-only 처리
+- Machine 내부 장식: driving lane과 다른 짙은 청색으로 변경
+- 하단 15px gap: Reference 하단 이동 객체와 정렬되는 중앙 `vertical_5`~`vertical_8`만 연결, 나머지는 unverified stub으로 유지
+- Before: 224 nodes / 359 edges / 2 components / 9 unsafe edges
+- After Human revision: 213 nodes / 355 edges / 1 driving component / 0 unsafe nodes / 0 unsafe edges
+- Renderer source: Safe LaneGraph `network_segments()` + visual-only upper cap
+- Rendered driving edges와 graph edges exact match; 1px/2px perpendicular near-gap 0
+- Full regression and new safety tests: 57 PASS
+
+16 entities / 300 seconds:
+
+- completed trips: 272
+- collisions/head-on/deadlocks/obstacle penetrations: 0
+- stopped over 5 seconds: 0
+
+24 entities / 300 seconds:
+
+- completed trips: 395
+- collisions/head-on/deadlocks/obstacle penetrations: 0
+- stopped over 5 seconds: 23
+
+Evidence:
+
+- `evidence/v4_1_safe_lane_topology.png`
+- `evidence/v4_1_topology_debug.png`
+- `evidence/v4_1_safe_topology_stress.txt`
+
+HUMAN TOPOLOGY / OBSTACLE VERIFICATION REQUIRED. TASK-009 이상은 시작하지 않았다.

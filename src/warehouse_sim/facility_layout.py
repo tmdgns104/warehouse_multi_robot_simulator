@@ -60,6 +60,7 @@ class NetworkSegment:
     end: Point
     color: Color = (218, 133, 145)
     width: float = 1.0
+    drivable: bool = True
 
     def __post_init__(self) -> None:
         if self.start[0] != self.end[0] and self.start[1] != self.end[1]:

@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .facility_layout import EntityShape, FacilityLayout
-from .lane_graph import LaneGraph, lane_graph_from_segments
+from .lane_graph import LaneGraph
+from .lane_safety import build_safe_lane_graph
 from .motion import LaneMobileEntity, MotionEngine
 from .reference_scenario import create_reference_layout
 
@@ -19,7 +20,7 @@ class ReferenceMotionScenario:
 
 def create_reference_motion_scenario() -> ReferenceMotionScenario:
     layout = create_reference_layout()
-    graph = lane_graph_from_segments(layout.network)
+    graph = build_safe_lane_graph(layout)
 
     def node(x, y):
         found = graph.nearest_node((x, y))

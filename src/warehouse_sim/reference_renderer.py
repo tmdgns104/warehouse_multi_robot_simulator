@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Tuple
 
-from .facility_layout import FacilityLayout
+from .facility_layout import FacilityLayout, NetworkSegment
 from .lane_graph import LaneGraph
 from .motion import MotionEngine, MotionState
 from .render_plan import DrawCommand, Primitive, build_render_plan
+from .lane_safety import machine_obstacles
 
 
 def _scaled_rect(points, sx, sy, ox=0, oy=0):
@@ -67,7 +68,8 @@ def render_motion_with_pillow(layout: FacilityLayout, engine: MotionEngine, outp
     image = Image.new("RGB", size, (30, 30, 30))
     draw = ImageDraw.Draw(image)
     sx, sy = size[0] / layout.design_width, size[1] / layout.design_height
-    base = build_render_plan(layout, engine.graph.network_segments(), include_entities=False)
+    visual_only = tuple(segment for segment in layout.network if not segment.drivable)
+    base = build_render_plan(layout, (*engine.graph.network_segments(), *visual_only), include_entities=False)
     _draw_pillow_commands(draw, base, sx, sy)
     _draw_pillow_commands(draw, motion_render_plan(engine), sx, sy)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -92,17 +94,16 @@ class ReferenceLayoutUI:
         self.layout = layout
         self.size = size
         self.screen = pygame.display.set_mode(size, pygame.RESIZABLE)
-        pygame.display.set_caption("Warehouse Reference Layout - V2")
+        pygame.display.set_caption("Warehouse Multi-Robot Traffic - V4")
         self.clock = pygame.time.Clock()
         self.graph = graph
         self.engine = engine
-        network = graph.network_segments() if graph is not None else None
+        network = ((*graph.network_segments(), *(segment for segment in layout.network if not segment.drivable))) if graph is not None else None
         self.plan = build_render_plan(layout, network, include_entities=engine is None)
         self.show_nodes = False
         self.show_routes = False
         self.show_reservations = False
         self.show_entity_ids = False
-
     def _viewport(self):
         width, height = self.screen.get_size()
         scale = min(width / self.layout.design_width, height / self.layout.design_height)
@@ -184,3 +185,77 @@ class ReferenceLayoutUI:
                 self.engine.update(delta_time)
             self.draw()
         self.pygame.quit()
+
+
+def render_topology_debug_with_pillow(layout: FacilityLayout, graph: LaneGraph, output: Path, size=(1280, 720)) -> Path:
+    """Render expanded obstacles, safe edges, and nodes for review evidence."""
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGB", size, (30, 30, 30))
+    draw = ImageDraw.Draw(image, "RGBA")
+    sx, sy = size[0] / layout.design_width, size[1] / layout.design_height
+    visual_only = tuple(segment for segment in layout.network if not segment.drivable)
+    component_by_node = {}
+    remaining = {node.id for node in graph.nodes}
+    component = 0
+    while remaining:
+        component += 1
+        start = min(remaining)
+        remaining.remove(start)
+        stack = [start]
+        component_by_node[start] = component
+        while stack:
+            for neighbor in graph.neighbors(stack.pop()):
+                if neighbor.id in remaining:
+                    remaining.remove(neighbor.id)
+                    component_by_node[neighbor.id] = component
+                    stack.append(neighbor.id)
+    component_colors = ((35, 150, 112), (78, 111, 207), (171, 102, 204))
+    debug_driving = tuple(
+        NetworkSegment(
+            f"debug_{edge.id}",
+            graph.node(edge.source).position,
+            graph.node(edge.target).position,
+            component_colors[(component_by_node[edge.source] - 1) % len(component_colors)],
+            2.0,
+        )
+        for edge in graph.edges
+    )
+    _draw_pillow_commands(
+        draw,
+        build_render_plan(layout, (*debug_driving, *visual_only), False),
+        sx,
+        sy,
+    )
+    for obstacle in machine_obstacles(layout):
+        draw.rectangle(
+            (obstacle.left * sx, obstacle.top * sy, obstacle.right * sx, obstacle.bottom * sy),
+            outline=(230, 40, 40, 230),
+            fill=(230, 40, 40, 35),
+            width=1,
+        )
+    for machine in layout.machines:
+        draw.rectangle(
+            (machine.x * sx, machine.y * sy, (machine.x + machine.width) * sx, (machine.y + machine.height) * sy),
+            outline=(235, 151, 35, 255),
+            width=2,
+        )
+    for node in graph.nodes:
+        radius = 2
+        draw.ellipse(
+            (node.x * sx - radius, node.y * sy - radius, node.x * sx + radius, node.y * sy + radius),
+            fill=(30, 30, 30, 220),
+        )
+    legend_x, legend_y = 995, 82
+    draw.text((legend_x, legend_y), "DEBUG TOPOLOGY", fill=(30, 30, 30, 255))
+    draw.line((legend_x, legend_y + 22, legend_x + 28, legend_y + 22), fill=(35, 150, 112, 255), width=3)
+    draw.text((legend_x + 36, legend_y + 15), "driving lane / component 1", fill=(30, 30, 30, 255))
+    draw.line((legend_x, legend_y + 42, legend_x + 28, legend_y + 42), fill=(172, 187, 196, 255), width=2)
+    draw.text((legend_x + 36, legend_y + 35), "visual-only", fill=(30, 30, 30, 255))
+    draw.rectangle((legend_x, legend_y + 56, legend_x + 28, legend_y + 70), outline=(235, 151, 35, 255), width=2)
+    draw.text((legend_x + 36, legend_y + 55), "machine bounds", fill=(30, 30, 30, 255))
+    draw.rectangle((legend_x, legend_y + 77, legend_x + 28, legend_y + 91), outline=(230, 40, 40, 255), width=1)
+    draw.text((legend_x + 36, legend_y + 76), "7 px clearance", fill=(30, 30, 30, 255))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    image.save(output)
+    return output

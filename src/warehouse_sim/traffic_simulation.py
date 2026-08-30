@@ -9,6 +9,7 @@ from typing import Iterable, Optional
 
 from .graph_planner import graph_astar
 from .lane_graph import LaneGraph
+from .lane_safety import RectangleObstacle, point_inside_obstacle
 from .motion import LaneMobileEntity, MotionState
 from .traffic import TrafficController
 from .traffic_planner import CongestionModel, RouteCostConfig, TrafficZone, traffic_astar
@@ -38,6 +39,7 @@ class TrafficMetrics:
     average_speed: float
     moving_ratio: float
     throughput_per_minute: float
+    obstacle_penetration_count: int
 
 
 class TrafficMotionEngine:
@@ -61,6 +63,7 @@ class TrafficMotionEngine:
         blocked_warning_seconds: float = 10.0,
         zones: Iterable[TrafficZone] = (),
         route_cost_config: RouteCostConfig = RouteCostConfig(),
+        obstacles: Iterable[RectangleObstacle] = (),
     ) -> None:
         self.graph = graph
         self.entities = list(entities)
@@ -83,6 +86,8 @@ class TrafficMotionEngine:
         self._total_entity_time = 0.0
         self._speed_integral = 0.0
         self.goal_candidates = tuple(goal_candidates or (node.id for node in graph.nodes))
+        self.obstacles = tuple(obstacles)
+        self.obstacle_penetration_count = 0
         self._initial = [(entity.current_node, entity.goal_node) for entity in self.entities]
         for order, entity in enumerate(self.entities):
             graph.node(entity.current_node)
@@ -342,6 +347,7 @@ class TrafficMotionEngine:
         self._moving_entity_time = 0.0
         self._total_entity_time = 0.0
         self._speed_integral = 0.0
+        self.obstacle_penetration_count = 0
         self.running = True
         for order, (entity, (start, goal)) in enumerate(zip(self.entities, self._initial)):
             entity.current_node = start
@@ -401,6 +407,7 @@ class TrafficMotionEngine:
             average_speed=self._speed_integral / (len(self.entities) * elapsed),
             moving_ratio=self._moving_entity_time / max(self._total_entity_time, 1e-12),
             throughput_per_minute=self.total_completed_trips / elapsed * 60.0,
+            obstacle_penetration_count=self.obstacle_penetration_count,
         )
 
     def validate_safety(self) -> None:
@@ -409,6 +416,10 @@ class TrafficMotionEngine:
         if len({entity.current_node for entity in node_entities}) != len(node_entities):
             raise AssertionError("Multiple entities occupy the same node")
         for entity in self.entities:
+            position = entity.position(self.graph)
+            if any(point_inside_obstacle(position, obstacle) for obstacle in self.obstacles):
+                self.obstacle_penetration_count += 1
+                raise AssertionError(f"Obstacle penetration by {entity.id} at {position}")
             if entity.current_edge is None:
                 if self.controller.owner_of_node(entity.current_node) != entity.id:
                     raise AssertionError(f"Missing node reservation for {entity.id}")
