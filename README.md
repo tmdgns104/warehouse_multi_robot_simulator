@@ -198,6 +198,23 @@ GUI에서는 WorkOrder 진행량, 생산량, starvation/blocking, transport/WIP/
 TransportRequest type, lot, source/destination을 확인할 수 있습니다. Debug(`D`)에서는 Machine
 상태, buffer occupancy, 최근 material trace를 추가로 표시합니다.
 
+## V5.5 Mission Explainability
+
+Production Demo는 Robot의 물리 상태와 업무 목적을 함께 보여줍니다. Robot 주변의 짧은
+`M01 SUP`, `M02 WIP`, `M03 QC`, `M04 OUT` badge와 우측 Mission panel을 통해 Lot과
+source/destination을 확인할 수 있습니다. Robot을 클릭하면 실제 남은 route와 S/D station,
+WorkOrder, Request/Task, priority/reason, lifecycle 및 실제 cargo ownership이 표시됩니다.
+
+```bash
+python3 app.py --production-demo
+python3 app.py --render-mission evidence/v5_5_mission_visualization.png --motion-time 200
+python3 app.py --render-selected-robot evidence/v5_5_selected_robot.png --selected-robot M01 --motion-time 200
+python3 app.py --render-mission-debug evidence/v5_5_mission_debug.png --motion-time 200
+```
+
+Mission badge 색상에는 항상 SUP/WIP/QC/OUT 텍스트가 함께 표시됩니다. `D`는 Machine,
+Buffer, 최근 trace와 내부 정지 정보를 추가하는 Debug mode입니다.
+
 ```bash
 python3 app.py --headless-factory 300 --entities 16 --seed 1234 --factory-profile busy
 python3 app.py --render-factory evidence/v5_3_actual_fleet_motion.png --motion-time 120

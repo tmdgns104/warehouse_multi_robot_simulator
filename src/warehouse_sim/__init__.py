@@ -26,6 +26,10 @@ from .factory import (
 )
 from .reference_factory_scenario import create_reference_factory_scenario
 from .reference_production_scenario import create_reference_production_scenario
+from .mission_view import (
+    MISSION_COLORS, MISSION_LABELS, MissionCount, RobotMissionView,
+    all_robot_missions, mission_counts, robot_mission_view,
+)
 from .production import (
     MachineState,
     MaterialBuffer,

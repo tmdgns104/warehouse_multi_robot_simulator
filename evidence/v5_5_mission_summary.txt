@@ -1,0 +1,46 @@
+V5.5 MISSION DIVERSITY SUMMARY
+==============================
+
+Scenario: Reference-derived layout + synthetic manufacturing scenario
+Simulation: 300 simulated seconds
+Robots: 16
+Seed: 1234
+
+Mission        Created  Assigned  Completed  Average lead time
+-------------  -------  --------  ---------  -----------------
+LINE_SUPPLY          8         8          8            31.492s
+WIP_TRANSFER         4         4          3            23.078s
+QC_TRANSFER          4         4          3            25.878s
+OUTBOUND_MOVE        6         6          6            46.983s
+
+Representative active missions at 300s
+--------------------------------------
+Robot M02
+Mission: WIP_TRANSFER
+Operational state: MOVING
+Lifecycle: TO SOURCE
+Material: LOT-B-004
+Work order: WO-B
+Request / Task: TR-0022 / JOB-P0022
+Source / Destination: PROC_B -> BUFFER_B
+Cargo: NO (material has not yet been picked up)
+
+Robot M03
+Mission: QC_TRANSFER
+Operational state: MOVING
+Lifecycle: TO SOURCE
+Material: LOT-A-004
+Work order: WO-A
+Request / Task: TR-0019 / JOB-P0019
+Source / Destination: PROC_A -> QC_A
+Cargo: NO (material has not yet been picked up)
+
+Production regression
+---------------------
+Production: 6 / 20
+Transport requests: 22 created / 20 completed
+Average transport lead time: 34.035s
+Collisions / head-on / deadlocks / obstacle penetrations: 0 / 0 / 0 / 0
+
+The counts are derived from TransportRequest lifecycle state. No display-only or dummy
+missions are generated.

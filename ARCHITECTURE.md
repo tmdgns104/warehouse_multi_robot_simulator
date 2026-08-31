@@ -543,6 +543,23 @@ Main implementation:
 - `task_manager.py`: TransportRequest linkage on executable MaterialTask
 - `reference_renderer.py`: production-aware panel and evidence rendering
 
+## V5.5 Mission Presentation Projection
+
+V5.5는 production, dispatch 또는 traffic state machine을 확장하지 않는다. `mission_view.py`가
+실제 `TransportRequest`, `MaterialTask`, `MaterialLoad`, Robot activity와 current route를 읽어
+immutable `RobotMissionView`를 만든다.
+
+```text
+Production/Factory source of truth
+        -> read-only RobotMissionView / MissionCount
+        -> normal, debug and selected-Robot renderers
+```
+
+Operational State는 Robot이 물리적으로 무엇을 하는지를, Business Mission은 그 움직임의
+업무 목적을 나타낸다. Cargo는 LoadState와 owner가 일치할 때만 true다. Selected route는
+planner를 다시 호출하지 않고 `entity.route[entity.route_index:]`를 그대로 표시하므로 실제
+실행 route와 renderer route가 일치한다.
+
 ### Testing Strategy
 
 ### V2~V7

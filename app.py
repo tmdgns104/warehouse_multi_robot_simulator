@@ -57,6 +57,14 @@ def parse_args() -> argparse.Namespace:
         metavar="PNG",
         help="render V5.4 production with stations and recent trace",
     )
+    parser.add_argument("--render-mission", type=Path, metavar="PNG",
+                        help="render a V5.5 mission-explainability snapshot")
+    parser.add_argument("--render-mission-debug", type=Path, metavar="PNG",
+                        help="render V5.5 mission details with production debug data")
+    parser.add_argument("--render-selected-robot", type=Path, metavar="PNG",
+                        help="render a V5.5 selected Robot and its actual remaining route")
+    parser.add_argument("--selected-robot", default="M01", metavar="ID",
+                        help="Robot selected by --render-selected-robot (default: M01)")
     parser.add_argument(
         "--render-factory",
         type=Path,
@@ -146,7 +154,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if (args.headless_production is not None or args.render_production is not None
-            or args.render_production_debug is not None):
+            or args.render_production_debug is not None or args.render_mission is not None
+            or args.render_mission_debug is not None or args.render_selected_robot is not None):
         from warehouse_sim.reference_production_scenario import create_reference_production_scenario
 
         duration = args.headless_production if args.headless_production is not None else args.motion_time
@@ -180,12 +189,16 @@ def main() -> int:
             f"collision_count=0 head_on_conflicts={traffic.head_on_conflict_count} "
             f"deadlocks={traffic.deadlock_count} obstacle_penetrations={traffic.obstacle_penetration_count}"
         )
-        if args.render_production is not None or args.render_production_debug is not None:
+        if any(output is not None for output in (
+                args.render_production, args.render_production_debug, args.render_mission,
+                args.render_mission_debug, args.render_selected_robot)):
             from warehouse_sim.reference_renderer import render_factory_with_pillow
-            output = args.render_production or args.render_production_debug
+            output = (args.render_production or args.render_production_debug or args.render_mission
+                      or args.render_mission_debug or args.render_selected_robot)
             render_factory_with_pillow(
                 scenario.layout, scenario.engine, output,
-                debug=args.render_production_debug is not None,
+                debug=args.render_production_debug is not None or args.render_mission_debug is not None,
+                selected_robot_id=args.selected_robot if args.render_selected_robot is not None else None,
             )
             print(f"production snapshot rendered: {output} time={duration:.3f}s")
         return 0

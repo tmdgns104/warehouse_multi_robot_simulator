@@ -2,13 +2,38 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V5.4
-Current Phase: TASK-009D Implemented / Automated Verification Pass / Human Realistic Factory Verification Required
-Current Task: TASK-009D - Realistic Production & Material Logistics
+Current Version: V5.5
+Current Phase: TASK-009E Implemented / Automated Verification Pass / Human Mission Visualization Verification Required
+Current Task: TASK-009E - Mission Visualization & Operational Explainability
 
 ## Final Goal
 
 Reference 영상의 2D 자동화 시스템을 단계적으로 재현한 뒤 ROS2 Humble + Gazebo Fortress + Nav2 기반 Multi-AMR Warehouse Digital Twin으로 발전시킨다.
+
+## TASK-009E Result
+
+V5.5는 V5.4 production domain과 timing을 변경하지 않고 실제 TransportRequest를 읽는
+presentation projection을 추가한다.
+
+- Operational State와 Business Mission을 별도 필드로 표시
+- Robot 근처에 `M03 SUP`, `M04 WIP`, `M07 QC`, `M09 OUT` 형식의 text/color badge
+- 우측 panel에서 16대 Robot과 Mission, Lot, source/destination 확인
+- SUPPLY/WIP/QC/OUT active 및 cumulative completed summary
+- Robot click selection, 실제 remaining route highlight, source/destination S/D marker
+- 실제 `MaterialLoad` ownership이 ON_ROBOT일 때만 Cargo 표시
+- selected detail에서 WorkOrder, Request, Task, priority, reason 및 lifecycle 표시
+- Normal 업무 화면과 Debug machine/buffer/trace 화면 분리
+- 렌더링이 simulation state를 변경하지 않는 regression test
+
+V5.4 동일 300초 baseline 유지:
+
+- production 6/20
+- requests 22 created / 20 completed
+- average lead time 34.035s
+- collisions/head-on/deadlocks/obstacle penetrations 0/0/0/0
+
+Mission diversity: SUPPLY 8/8, WIP 4/3, QC 4/3, OUT 6/6 created/completed.
+Human GUI verification 전 COMPLETE가 아니며 TASK-010 / V6는 시작하지 않았다.
 
 ## TASK-009D Result
 

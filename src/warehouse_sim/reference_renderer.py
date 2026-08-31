@@ -9,6 +9,7 @@ from .facility_layout import FacilityLayout, NetworkSegment
 from .factory import PhysicalActivity
 from .lane_graph import LaneGraph
 from .motion import MotionEngine, MotionState
+from .mission_view import MISSION_COLORS, mission_counts, robot_mission_view
 from .render_plan import DrawCommand, Primitive, build_render_plan
 from .task_manager import RobotWorkState
 from .lane_safety import (
@@ -58,22 +59,13 @@ def factory_status_render_plan(engine) -> tuple[DrawCommand, ...]:
 
 
 def _production_robot_line(engine, entity) -> str:
-    task_id = engine.robot_tasks[entity.id]
-    if not task_id:
+    view = robot_mission_view(engine, entity.id)
+    if not view.mission:
         return f"{entity.id} TRUE_IDLE"
-    task = engine.factory.task_manager.tasks[task_id]
-    request = engine.requests.get(task.transport_request_id)
-    if request is None:
-        return f"{entity.id} {engine.activity_states[entity.id].value} {task_id}"
-    unit = engine.materials[request.material_unit_id]
-    kind = {
-        "LINE_SUPPLY": "SUPPLY", "WIP_TRANSFER": "WIP",
-        "QC_TRANSFER": "QC", "OUTBOUND_MOVE": "OUT",
-        "INBOUND_MOVE": "IN",
-    }[request.request_type.value]
-    activity = engine.activity_states[entity.id].value.replace("RESOURCE_WAIT", "RES_WAIT")
-    return (f"{entity.id} {activity:<8} {request.id} {kind} "
-            f"{unit.lot_id[-4:]} {request.source_location}>{request.destination_location}")
+    cargo = " BOX" if view.has_cargo else ""
+    activity = view.operational_state.replace("RESOURCE_WAIT", "RES_WAIT")
+    return (f"{entity.id} {activity:<8} | {view.mission:<6}{cargo} "
+            f"{view.lot_id[-4:]} {view.source}>{view.destination}")
 
 
 def _draw_pillow_commands(draw, commands, sx, sy) -> None:
@@ -122,7 +114,8 @@ def render_motion_with_pillow(layout: FacilityLayout, engine: MotionEngine, outp
     return output
 
 
-def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, size=(1280, 720), debug=False) -> Path:
+def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, size=(1280, 720),
+                               debug=False, selected_robot_id: str | None = None) -> Path:
     """Render task-driven V5 evidence including compact metrics and load state."""
     from PIL import Image, ImageDraw
 
@@ -133,6 +126,29 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
     _draw_pillow_commands(draw, base, sx, sy)
     _draw_pillow_commands(draw, motion_render_plan(engine), sx, sy)
     _draw_pillow_commands(draw, factory_status_render_plan(engine), sx, sy)
+    is_production = hasattr(engine, "production_metrics")
+    if is_production:
+        for entity in engine.entities:
+            view = robot_mission_view(engine, entity.id)
+            if not view.mission:
+                continue
+            x, y = entity.position(engine.graph)
+            color = MISSION_COLORS[view.mission]
+            draw.rounded_rectangle((x * sx + 5, y * sy - 16, x * sx + 43, y * sy - 1),
+                                   radius=3, fill=(255, 255, 255), outline=color, width=2)
+            draw.text((x * sx + 8, y * sy - 15), f"{entity.id} {view.mission[:3]}", fill=color)
+        if selected_robot_id:
+            selected = robot_mission_view(engine, selected_robot_id)
+            for first, second in zip(selected.route_node_ids, selected.route_node_ids[1:]):
+                a, b = engine.graph.node(first), engine.graph.node(second)
+                draw.line((a.x * sx, a.y * sy, b.x * sx, b.y * sy), fill=(20, 105, 215), width=4)
+            for node_id, label, color in ((selected.source_node_id, "S", (28, 135, 72)),
+                                          (selected.destination_node_id, "D", (190, 55, 55))):
+                if node_id:
+                    node = engine.graph.node(node_id)
+                    draw.ellipse((node.x * sx - 8, node.y * sy - 8, node.x * sx + 8, node.y * sy + 8),
+                                 fill=(255, 255, 255), outline=color, width=3)
+                    draw.text((node.x * sx - 3, node.y * sy - 7), label, fill=color)
     metrics = engine.factory_metrics
     activity_counts = {activity: sum(value == activity for value in engine.activity_states.values())
                        for activity in PhysicalActivity}
@@ -151,7 +167,7 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
         production = engine.production_metrics
         orders = tuple(engine.work_orders.values())
         lines = (
-            "V5.4 SYNTHETIC PRODUCTION",
+            "V5.5 MISSION EXPLAINABILITY",
             f"{orders[0].id} {orders[0].product_id} {orders[0].completed_quantity}/{orders[0].target_quantity}",
             f"{orders[1].id} {orders[1].product_id} {orders[1].completed_quantity}/{orders[1].target_quantity}",
             f"PRODUCTION {production.production_completed_units}/{production.production_target_units}",
@@ -161,9 +177,13 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
             f"WIP {production.wip_count:2d} BUFFER {production.buffer_occupancy}/{production.buffer_capacity}",
             f"ACTUAL MOVE {metrics.actual_motion_ratio * 100:4.1f}%",
         )
+        counts = mission_counts(engine)
+        lines += ("ACTIVE / DONE MISSIONS",) + tuple(
+            f"{row.mission:<6} {row.active:2d} / {row.completed:2d}" for row in counts
+        )
     for index, line in enumerate(lines):
         draw.text((995, 74 + index * 18), line, fill=(35, 35, 35))
-    robot_y = 250
+    robot_y = 330 if is_production else 250
     for entity in engine.entities[:16]:
         task_id = engine.robot_tasks[entity.id] or "-"
         text = (_production_robot_line(engine, entity) if hasattr(engine, "production_metrics")
@@ -171,7 +191,7 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
         if debug and engine.continuous_stationary_time[entity.id] >= 1.0:
             text += f" STILL {engine.continuous_stationary_time[entity.id]:.1f}s"
         draw.text((995, robot_y), text, fill=(45, 45, 45))
-        robot_y += 16
+        robot_y += 13 if is_production else 16
     if debug:
         for station in engine.stations.values():
             node = engine.graph.node(station.service_node_id)
@@ -205,7 +225,23 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
                 for event in engine.trace_events[-2:]
             )
         for index, line in enumerate(debug_lines):
-            draw.text((995, 520 + index * 17), line, fill=(75, 40, 40))
+            draw.text((995, (545 if is_production else 520) + index * 15), line, fill=(75, 40, 40))
+    if is_production and selected_robot_id:
+        selected = robot_mission_view(engine, selected_robot_id)
+        detail = (
+            f"SELECTED {selected.robot_id}",
+            f"MISSION {selected.mission or '-'}",
+            f"STATE {selected.operational_state}  LIFE {selected.lifecycle or '-'}",
+            f"CARGO {'YES' if selected.has_cargo else 'NO'}  {selected.work_order_id or '-'}",
+            f"LOT {selected.lot_id or '-'}",
+            f"REQ {selected.request_id or '-'}  TASK {selected.task_id or '-'}",
+            f"FROM {selected.source or '-'}",
+            f"TO   {selected.destination or '-'}",
+            f"PRIORITY {selected.priority or '-'}",
+            f"REASON {selected.reason or '-'}",
+        )
+        for index, line in enumerate(detail):
+            draw.text((995, 575 + index * 13), line, fill=(22, 70, 125))
     output.parent.mkdir(parents=True, exist_ok=True)
     image.save(output)
     return output
@@ -229,7 +265,7 @@ class ReferenceLayoutUI:
         self.size = size
         self.screen = pygame.display.set_mode(size, pygame.RESIZABLE)
         pygame.display.set_caption(
-            ("Warehouse Manufacturing Logistics - V5.4" if engine is not None and hasattr(engine, "production_metrics")
+            ("Warehouse Multi-Robot Factory - V5.5" if engine is not None and hasattr(engine, "production_metrics")
              else "Warehouse Multi-Robot Factory - V5.3") if engine is not None and hasattr(engine, "factory_metrics")
             else "Warehouse Multi-Robot Traffic - V4"
         )
@@ -243,6 +279,7 @@ class ReferenceLayoutUI:
         self.show_reservations = False
         self.show_entity_ids = False
         self.show_topology_debug = False
+        self.selected_robot_id: str | None = None
 
     def _viewport(self):
         width, height = self.screen.get_size()
@@ -256,6 +293,12 @@ class ReferenceLayoutUI:
         self.screen.fill((28, 28, 28))
         scale, ox, oy = self._viewport()
         commands = list(self.plan)
+        if self.engine is not None and hasattr(self.engine, "production_metrics") and self.selected_robot_id:
+            selected = robot_mission_view(self.engine, self.selected_robot_id)
+            for source_id, target_id in zip(selected.route_node_ids, selected.route_node_ids[1:]):
+                source, target = self.graph.node(source_id), self.graph.node(target_id)
+                commands.append(DrawCommand(Primitive.LINE, (source.x, source.y, target.x, target.y),
+                                            (20, 105, 215), 4.0))
         if self.show_routes and self.engine is not None:
             for entity in self.engine.entities:
                 for source_id, target_id in zip(entity.route, entity.route[1:]):
@@ -298,6 +341,24 @@ class ReferenceLayoutUI:
                 x, y = entity.position(self.graph)
                 label = font.render(entity.id, True, (35, 35, 35))
                 self.screen.blit(label, (round(ox + x * scale + 7), round(oy + y * scale - 8)))
+        if self.engine is not None and hasattr(self.engine, "production_metrics"):
+            badge_font = pygame.font.SysFont("consolas", max(8, round(9 * scale)), bold=True)
+            for entity in self.engine.entities:
+                view = robot_mission_view(self.engine, entity.id)
+                if not view.mission:
+                    continue
+                x, y = entity.position(self.graph)
+                label = badge_font.render(f"{entity.id} {view.mission[:3]}", True, MISSION_COLORS[view.mission], (255, 255, 255))
+                self.screen.blit(label, (round(ox + (x + 6) * scale), round(oy + (y - 15) * scale)))
+            if self.selected_robot_id:
+                selected = robot_mission_view(self.engine, self.selected_robot_id)
+                for node_id, text, color in ((selected.source_node_id, "S", (28, 135, 72)),
+                                             (selected.destination_node_id, "D", (190, 55, 55))):
+                    if node_id:
+                        node = self.graph.node(node_id)
+                        center = (round(ox + node.x * scale), round(oy + node.y * scale))
+                        pygame.draw.circle(self.screen, color, center, max(6, round(8 * scale)), 2)
+                        self.screen.blit(badge_font.render(text, True, color), (center[0] - 3, center[1] - 7))
         if self.show_topology_debug and self.graph is not None:
             for obstacle in driving_obstacles(self.layout):
                 expanded = pygame.Rect(_scaled_rect(
@@ -343,7 +404,7 @@ class ReferenceLayoutUI:
                 production = self.engine.production_metrics
                 orders = tuple(self.engine.work_orders.values())
                 panel_lines = (
-                    "V5.4 SYNTHETIC PRODUCTION",
+                    "V5.5 MISSION EXPLAINABILITY",
                     f"{orders[0].id} {orders[0].product_id} {orders[0].completed_quantity}/{orders[0].target_quantity}",
                     f"{orders[1].id} {orders[1].product_id} {orders[1].completed_quantity}/{orders[1].target_quantity}",
                     f"PRODUCTION {production.production_completed_units}/{production.production_target_units}",
@@ -353,12 +414,18 @@ class ReferenceLayoutUI:
                     f"WIP {production.wip_count:2d} BUFFER {production.buffer_occupancy}/{production.buffer_capacity}",
                     f"ACTUAL MOVE {metrics.actual_motion_ratio * 100:4.1f}%",
                 )
+                panel_lines += ("ACTIVE / DONE",) + tuple(
+                    f"{row.mission:<6} {row.active:2d}/{row.completed:2d}"
+                    for row in mission_counts(self.engine)
+                )
             panel_x = round(ox + 990 * scale)
             panel_y = round(oy + 72 * scale)
             for index, line in enumerate(panel_lines):
                 label = font.render(line, True, (35, 35, 35))
                 self.screen.blit(label, (panel_x, panel_y + index * max(14, round(18 * scale))))
-            robot_y = panel_y + max(160, round(180 * scale))
+            robot_y = panel_y + (max(230, round(258 * scale))
+                                 if hasattr(self.engine, "production_metrics")
+                                 else max(160, round(180 * scale)))
             for entity in self.engine.entities[:16]:
                 task_id = self.engine.robot_tasks[entity.id] or "-"
                 line = (_production_robot_line(self.engine, entity)
@@ -368,7 +435,22 @@ class ReferenceLayoutUI:
                     line += f" STILL {self.engine.continuous_stationary_time[entity.id]:.1f}s"
                 label = font.render(line, True, (45, 45, 45))
                 self.screen.blit(label, (panel_x, robot_y))
-                robot_y += max(12, round(16 * scale))
+                robot_y += (max(10, round(13 * scale))
+                            if hasattr(self.engine, "production_metrics")
+                            else max(12, round(16 * scale)))
+            if hasattr(self.engine, "production_metrics") and self.selected_robot_id:
+                selected = robot_mission_view(self.engine, self.selected_robot_id)
+                selected_lines = (
+                    f"SELECTED {selected.robot_id}", f"MISSION {selected.mission}",
+                    f"STATE {selected.operational_state} LIFE {selected.lifecycle}",
+                    f"CARGO {'YES' if selected.has_cargo else 'NO'} {selected.work_order_id}",
+                    f"LOT {selected.lot_id}", f"REQ {selected.request_id} TASK {selected.task_id}",
+                    f"FROM {selected.source}", f"TO {selected.destination}",
+                    f"PRIORITY {selected.priority}", f"REASON {selected.reason}",
+                )
+                for index, line in enumerate(selected_lines):
+                    self.screen.blit(font.render(line, True, (22, 70, 125)),
+                                     (panel_x, round(oy + (575 + index * 13) * scale)))
         pygame.display.flip()
 
     def run(self) -> None:
@@ -395,6 +477,15 @@ class ReferenceLayoutUI:
                         self.show_entity_ids = not self.show_entity_ids
                     elif event.key == self.pygame.K_d:
                         self.show_topology_debug = not self.show_topology_debug
+                elif (event.type == self.pygame.MOUSEBUTTONDOWN and event.button == 1
+                      and self.engine is not None and hasattr(self.engine, "production_metrics")):
+                    scale, ox, oy = self._viewport()
+                    mx, my = (event.pos[0] - ox) / scale, (event.pos[1] - oy) / scale
+                    nearest = min(self.engine.entities,
+                                  key=lambda entity: (entity.position(self.graph)[0] - mx) ** 2
+                                  + (entity.position(self.graph)[1] - my) ** 2)
+                    x, y = nearest.position(self.graph)
+                    self.selected_robot_id = nearest.id if (x - mx) ** 2 + (y - my) ** 2 <= 18 ** 2 else None
             if self.engine is not None:
                 self.engine.update(delta_time)
             self.draw()
