@@ -35,6 +35,29 @@ def parse_args() -> argparse.Namespace:
         help="run the V5 task-driven factory without pygame",
     )
     parser.add_argument(
+        "--headless-production",
+        type=float,
+        metavar="SECONDS",
+        help="run the V5.4 synthetic production/material-logistics scenario",
+    )
+    parser.add_argument(
+        "--production-demo",
+        action="store_true",
+        help="open the V5.4 synthetic manufacturing scenario",
+    )
+    parser.add_argument(
+        "--render-production",
+        type=Path,
+        metavar="PNG",
+        help="render a V5.4 production snapshot and exit",
+    )
+    parser.add_argument(
+        "--render-production-debug",
+        type=Path,
+        metavar="PNG",
+        help="render V5.4 production with stations and recent trace",
+    )
+    parser.add_argument(
         "--render-factory",
         type=Path,
         metavar="PNG",
@@ -122,6 +145,51 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if (args.headless_production is not None or args.render_production is not None
+            or args.render_production_debug is not None):
+        from warehouse_sim.reference_production_scenario import create_reference_production_scenario
+
+        duration = args.headless_production if args.headless_production is not None else args.motion_time
+        if duration < 0:
+            raise SystemExit("production duration must be zero or greater")
+        scenario = create_reference_production_scenario(args.entity_count, seed=args.seed)
+        remaining = duration
+        while remaining > 1e-12:
+            delta = min(1.0 / 60.0, remaining)
+            scenario.engine.update(delta)
+            scenario.engine.validate_safety()
+            remaining -= delta
+        production = scenario.engine.production_metrics
+        fleet = scenario.engine.factory_metrics
+        traffic = scenario.engine.factory.traffic.metrics
+        print(
+            f"entities={len(scenario.engine.entities)} simulated_seconds={duration:.3f} "
+            f"production_completed={production.production_completed_units} "
+            f"production_target={production.production_target_units} "
+            f"production_throughput={production.production_throughput:.3f} "
+            f"machine_starvation={production.machine_starvation_time:.3f} "
+            f"machine_blocking={production.machine_blocking_time:.3f} "
+            f"transport_created={production.transport_requests_created} "
+            f"transport_completed={production.transport_requests_completed} "
+            f"transport_lead_time={production.average_transport_lead_time:.3f} "
+            f"on_time_rate={production.on_time_transport_rate:.4f} "
+            f"wip={production.wip_count} buffer_occupancy={production.buffer_occupancy}/"
+            f"{production.buffer_capacity} inventory_errors={production.inventory_accuracy_errors} "
+            f"actual_motion_ratio={fleet.actual_motion_ratio:.4f} "
+            f"holding_ratio={fleet.holding_ratio:.4f} true_idle_ratio={fleet.true_idle_ratio:.4f} "
+            f"collision_count=0 head_on_conflicts={traffic.head_on_conflict_count} "
+            f"deadlocks={traffic.deadlock_count} obstacle_penetrations={traffic.obstacle_penetration_count}"
+        )
+        if args.render_production is not None or args.render_production_debug is not None:
+            from warehouse_sim.reference_renderer import render_factory_with_pillow
+            output = args.render_production or args.render_production_debug
+            render_factory_with_pillow(
+                scenario.layout, scenario.engine, output,
+                debug=args.render_production_debug is not None,
+            )
+            print(f"production snapshot rendered: {output} time={duration:.3f}s")
+        return 0
+
     if args.headless_factory is not None or args.render_factory is not None or args.render_factory_debug is not None:
         from warehouse_sim.reference_factory_scenario import create_reference_factory_scenario
 
@@ -313,6 +381,12 @@ def main() -> int:
                 )
             except ValueError as error:
                 raise SystemExit(str(error)) from error
+            application = ReferenceLayoutUI(scenario.layout, scenario.graph, scenario.engine)
+        elif args.production_demo:
+            from warehouse_sim.reference_production_scenario import create_reference_production_scenario
+            from warehouse_sim.reference_renderer import ReferenceLayoutUI
+
+            scenario = create_reference_production_scenario(args.entity_count, seed=args.seed)
             application = ReferenceLayoutUI(scenario.layout, scenario.graph, scenario.engine)
         else:
             from warehouse_sim.reference_factory_scenario import create_reference_factory_scenario

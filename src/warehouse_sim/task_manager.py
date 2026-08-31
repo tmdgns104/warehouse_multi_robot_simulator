@@ -79,6 +79,7 @@ class MaterialTask:
     assigned_time: float | None = None
     pickup_time: float | None = None
     completed_time: float | None = None
+    transport_request_id: str | None = None
 
 
 @dataclass

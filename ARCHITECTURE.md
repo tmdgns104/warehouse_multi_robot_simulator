@@ -511,6 +511,40 @@ WorldSnapshot
 
 ## 9. Testing Strategy
 
+## V5.4 Production and Material Logistics
+
+The display geometry remains a reference-derived layout. The business interpretation below is a
+synthetic manufacturing scenario and is not evidence about the real equipment shown in the video.
+
+```text
+WorkOrder
+    -> ProductionMachine / MaterialBuffer demand
+    -> TransportRequest (business requirement)
+    -> MaterialTask + MaterialLoad (one executable transport leg)
+    -> existing Factory dispatch / TrafficController / SafeLaneGraph
+    -> buffer, machine and WorkOrder state update
+```
+
+`ProductionEngine` composes the existing `FactoryEngine`; it does not replace traffic, reservation,
+motion or service-capacity logic. `MaterialUnit.current_location` is the lifecycle inventory source
+of truth. A `MaterialLoad` is intentionally narrower: it represents custody during one Robot task.
+Destination capacity is reserved when a request is created, preventing simultaneous inbound moves
+from overbooking a finite buffer.
+
+Production timers use simulation time. WAITING_MATERIAL contributes starvation time; a completed
+machine that cannot unload contributes blocking time. Consequently transport delay changes factory
+KPI rather than merely changing an unrelated display counter.
+
+Main implementation:
+
+- `production.py`: WorkOrder, MaterialUnit/trace, buffers, machines, requests and orchestration
+- `reference_production_scenario.py`: deterministic two-product acceptance scenario
+- `factory.py`: preserved dispatch/traffic layer with optional production-controlled idle behavior
+- `task_manager.py`: TransportRequest linkage on executable MaterialTask
+- `reference_renderer.py`: production-aware panel and evidence rendering
+
+### Testing Strategy
+
 ### V2~V7
 
 - Layout parsing/unit tests

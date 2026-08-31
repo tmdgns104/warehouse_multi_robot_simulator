@@ -57,6 +57,25 @@ def factory_status_render_plan(engine) -> tuple[DrawCommand, ...]:
     return tuple(commands)
 
 
+def _production_robot_line(engine, entity) -> str:
+    task_id = engine.robot_tasks[entity.id]
+    if not task_id:
+        return f"{entity.id} TRUE_IDLE"
+    task = engine.factory.task_manager.tasks[task_id]
+    request = engine.requests.get(task.transport_request_id)
+    if request is None:
+        return f"{entity.id} {engine.activity_states[entity.id].value} {task_id}"
+    unit = engine.materials[request.material_unit_id]
+    kind = {
+        "LINE_SUPPLY": "SUPPLY", "WIP_TRANSFER": "WIP",
+        "QC_TRANSFER": "QC", "OUTBOUND_MOVE": "OUT",
+        "INBOUND_MOVE": "IN",
+    }[request.request_type.value]
+    activity = engine.activity_states[entity.id].value.replace("RESOURCE_WAIT", "RES_WAIT")
+    return (f"{entity.id} {activity:<8} {request.id} {kind} "
+            f"{unit.lot_id[-4:]} {request.source_location}>{request.destination_location}")
+
+
 def _draw_pillow_commands(draw, commands, sx, sy) -> None:
     for command in commands:
         if command.primitive == Primitive.RECT:
@@ -128,12 +147,27 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
         f"HOLD        {metrics.holding_ratio * 100:4.1f}%",
         f"COMPLETED   {metrics.tasks_completed}",
     )
+    if hasattr(engine, "production_metrics"):
+        production = engine.production_metrics
+        orders = tuple(engine.work_orders.values())
+        lines = (
+            "V5.4 SYNTHETIC PRODUCTION",
+            f"{orders[0].id} {orders[0].product_id} {orders[0].completed_quantity}/{orders[0].target_quantity}",
+            f"{orders[1].id} {orders[1].product_id} {orders[1].completed_quantity}/{orders[1].target_quantity}",
+            f"PRODUCTION {production.production_completed_units}/{production.production_target_units}",
+            f"STARVATION {production.machine_starvation_time:6.1f}s",
+            f"BLOCKING   {production.machine_blocking_time:6.1f}s",
+            f"TRANSPORT  {production.transport_requests_completed}/{production.transport_requests_created}",
+            f"WIP {production.wip_count:2d} BUFFER {production.buffer_occupancy}/{production.buffer_capacity}",
+            f"ACTUAL MOVE {metrics.actual_motion_ratio * 100:4.1f}%",
+        )
     for index, line in enumerate(lines):
         draw.text((995, 74 + index * 18), line, fill=(35, 35, 35))
     robot_y = 250
     for entity in engine.entities[:16]:
         task_id = engine.robot_tasks[entity.id] or "-"
-        text = f"{entity.id} {engine.activity_states[entity.id].value:<12} {task_id}"
+        text = (_production_robot_line(engine, entity) if hasattr(engine, "production_metrics")
+                else f"{entity.id} {engine.activity_states[entity.id].value:<12} {task_id}")
         if debug and engine.continuous_stationary_time[entity.id] >= 1.0:
             text += f" STILL {engine.continuous_stationary_time[entity.id]:.1f}s"
         draw.text((995, robot_y), text, fill=(45, 45, 45))
@@ -159,6 +193,17 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
             f"STAGING BLOCK  {metrics.staging_capacity_blocks}",
             f"LATE SERVICE   {metrics.late_service_reservations}",
         )
+        if hasattr(engine, "production_metrics"):
+            debug_lines = tuple(
+                f"{machine.station_id:<8} {machine.state.value:<16} {machine.current_material_id or '-'}"
+                for machine in engine.machines.values()
+            ) + tuple(
+                f"{station:<8} BUF {buffer.occupied}/{buffer.capacity} IN+{len(buffer.inbound_reservations)}"
+                for station, buffer in list(engine.buffers.items())[:4]
+            ) + tuple(
+                f"TRACE {event.material_unit_id} {event.event} {event.robot_id or '-'}"
+                for event in engine.trace_events[-2:]
+            )
         for index, line in enumerate(debug_lines):
             draw.text((995, 520 + index * 17), line, fill=(75, 40, 40))
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -184,7 +229,8 @@ class ReferenceLayoutUI:
         self.size = size
         self.screen = pygame.display.set_mode(size, pygame.RESIZABLE)
         pygame.display.set_caption(
-            "Warehouse Multi-Robot Factory - V5.3" if engine is not None and hasattr(engine, "factory_metrics")
+            ("Warehouse Manufacturing Logistics - V5.4" if engine is not None and hasattr(engine, "production_metrics")
+             else "Warehouse Multi-Robot Factory - V5.3") if engine is not None and hasattr(engine, "factory_metrics")
             else "Warehouse Multi-Robot Traffic - V4"
         )
         self.clock = pygame.time.Clock()
@@ -293,6 +339,20 @@ class ReferenceLayoutUI:
                 f"HOLD        {metrics.holding_ratio * 100:4.1f}%",
                 f"COMPLETED   {metrics.tasks_completed}",
             )
+            if hasattr(self.engine, "production_metrics"):
+                production = self.engine.production_metrics
+                orders = tuple(self.engine.work_orders.values())
+                panel_lines = (
+                    "V5.4 SYNTHETIC PRODUCTION",
+                    f"{orders[0].id} {orders[0].product_id} {orders[0].completed_quantity}/{orders[0].target_quantity}",
+                    f"{orders[1].id} {orders[1].product_id} {orders[1].completed_quantity}/{orders[1].target_quantity}",
+                    f"PRODUCTION {production.production_completed_units}/{production.production_target_units}",
+                    f"STARVATION {production.machine_starvation_time:6.1f}s",
+                    f"BLOCKING   {production.machine_blocking_time:6.1f}s",
+                    f"TRANSPORT  {production.transport_requests_completed}/{production.transport_requests_created}",
+                    f"WIP {production.wip_count:2d} BUFFER {production.buffer_occupancy}/{production.buffer_capacity}",
+                    f"ACTUAL MOVE {metrics.actual_motion_ratio * 100:4.1f}%",
+                )
             panel_x = round(ox + 990 * scale)
             panel_y = round(oy + 72 * scale)
             for index, line in enumerate(panel_lines):
@@ -301,7 +361,9 @@ class ReferenceLayoutUI:
             robot_y = panel_y + max(160, round(180 * scale))
             for entity in self.engine.entities[:16]:
                 task_id = self.engine.robot_tasks[entity.id] or "-"
-                line = f"{entity.id} {self.engine.activity_states[entity.id].value:<12} {task_id}"
+                line = (_production_robot_line(self.engine, entity)
+                        if hasattr(self.engine, "production_metrics")
+                        else f"{entity.id} {self.engine.activity_states[entity.id].value:<12} {task_id}")
                 if self.show_topology_debug and self.engine.continuous_stationary_time[entity.id] >= 1.0:
                     line += f" STILL {self.engine.continuous_stationary_time[entity.id]:.1f}s"
                 label = font.render(line, True, (45, 45, 45))

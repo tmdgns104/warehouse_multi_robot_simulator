@@ -22,6 +22,7 @@ class FactoryConfig:
     max_active_tasks: int = 10
     engagement_warmup: float = 10.0
     balance_workload: bool = False
+    park_when_empty: bool = True
 
 
 class FactoryProfile(str, Enum):
@@ -422,9 +423,12 @@ class FactoryEngine:
                 self.robot_tasks[entity.id], self.processing_remaining[entity.id] = None, 0.0
                 self._replenish_queue()
                 if not self._dispatch_entity(entity, direct=True):
-                    self.work_states[entity.id] = RobotWorkState.RETURNING
-                    self.traffic.assign_goal(entity, self.parking_nodes[entity.id])
-                    self.parking_returns += 1
+                    if self.config.park_when_empty:
+                        self.work_states[entity.id] = RobotWorkState.RETURNING
+                        self.traffic.assign_goal(entity, self.parking_nodes[entity.id])
+                        self.parking_returns += 1
+                    else:
+                        self.work_states[entity.id] = RobotWorkState.IDLE
 
     def _recover_factory_traffic_wait(self, entity: LaneMobileEntity) -> None:
         """Back off a blocked approach to remote holding before it becomes indefinite."""

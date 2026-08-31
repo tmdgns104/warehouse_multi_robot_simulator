@@ -1,0 +1,71 @@
+V5.4 REALISTIC FACTORY ACCEPTANCE
+=================================
+
+Scenario configuration
+----------------------
+Layout: reference-derived visual layout
+Business meaning: synthetic manufacturing scenario
+Seed: 1234
+Robots: 16
+Simulation time: 300 simulated seconds
+Work orders: WO-A PRODUCT-A 10 units; WO-B PRODUCT-B 10 units
+Processing times: PROC_A 12s, QC_A 6s, PROC_B 12s, BUFFER_B 6s
+
+Production
+----------
+Target: 20
+Completed: 6 (WO-A 3/10, WO-B 3/10)
+Throughput: 1.200 units/min
+Completion checkpoints at 100/200/300s: 0 / 4 / 6
+
+Machines
+--------
+PROC_A: WAITING_UNLOAD, cycles=4, starvation=101.883s, blocking=150.050s
+QC_A: WAITING_MATERIAL, cycles=3, starvation=240.217s, blocking=41.733s
+PROC_B: WAITING_UNLOAD, cycles=4, starvation=150.017s, blocking=101.917s
+BUFFER_B: WAITING_MATERIAL, cycles=3, starvation=184.633s, blocking=97.317s
+Largest starvation: QC_A 240.217s
+Largest blocking: PROC_A 150.050s
+
+Inventory
+---------
+WIP: 2
+Buffer occupancy: 12 / 52
+IN_A: 6/10 (maximum observed 10)
+IN_B: 6/10 (maximum observed 10)
+Process buffers: 0/3 at finish (maximum observed 1)
+Outbound buffers: 0/10 at finish (maximum observed 1)
+Inventory accuracy errors: 0
+Buffer over-capacity events: 0
+Duplicate material/load errors: 0
+
+Transport
+---------
+Requests created: 22
+Requests completed: 20
+Average lead time: 34.035s
+On-time rate: 0.9000
+Lifecycle states observed: OPEN, ASSIGNED, IN_PROGRESS, COMPLETED
+Business types observed: LINE_SUPPLY, WIP_TRANSFER, QC_TRANSFER, OUTBOUND_MOVE
+
+Fleet
+-----
+Actual motion ratio: 0.1466
+Holding ratio: 0.0000
+True idle ratio: 0.8173
+Interpretation: production demand and finite WIP govern robot work; robot utilization is
+not optimized in V5.4 and is not treated as the production objective.
+
+Safety and integrity
+--------------------
+Collisions: 0
+Head-on conflicts: 0
+Deadlocks: 0
+Obstacle penetrations: 0
+Inventory integrity violations: 0
+
+Bottleneck interpretation
+-------------------------
+QC_A accumulated the greatest starvation, while PROC_A accumulated the greatest
+blocking. These values are caused by the same Robot transport lifecycle that delivers
+and unloads material; they are not independent display counters.

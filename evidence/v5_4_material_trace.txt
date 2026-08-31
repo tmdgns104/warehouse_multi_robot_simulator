@@ -1,0 +1,35 @@
+V5.4 MATERIAL TRACE EVIDENCE
+============================
+
+Scenario: Reference-derived layout + synthetic manufacturing scenario
+Seed: 1234
+Material unit: MAT-A-001
+Lot: LOT-A-001
+Work order: WO-A (PRODUCT-A)
+Final state: SHIPPED
+
+Timestamp  Event                 From    To      Robot  Request  Task
+---------  --------------------  ------  ------  -----  -------  ---------
+    0.000  CREATED                       IN_A                   
+    0.000  REQUESTED             IN_A    PROC_A         TR-0001  JOB-P0001
+    0.017  ASSIGNED                              M01    TR-0001  JOB-P0001
+   28.200  PICKED_UP             IN_A            M01    TR-0001  JOB-P0001
+   37.083  DELIVERED                     PROC_A  M01    TR-0001  JOB-P0001
+   37.083  PROCESSING_STARTED            PROC_A
+   49.083  PROCESSING_COMPLETED          PROC_A
+   49.100  REQUESTED             PROC_A  QC_A            TR-0003  JOB-P0003
+   49.117  ASSIGNED                              M01    TR-0003  JOB-P0003
+   53.933  PICKED_UP             PROC_A          M01    TR-0003  JOB-P0003
+   74.450  DELIVERED                     QC_A    M01    TR-0003  JOB-P0003
+   74.450  PROCESSING_STARTED            QC_A
+   80.450  PROCESSING_COMPLETED          QC_A
+   80.467  REQUESTED             QC_A    OUT_A           TR-0008  JOB-P0008
+   80.483  ASSIGNED                              M01    TR-0008  JOB-P0008
+   87.367  PICKED_UP             QC_A            M01    TR-0008  JOB-P0008
+  110.717  SHIPPED                       OUT_A   M01    TR-0008  JOB-P0008
+
+Reconstructable chain:
+WO-A -> MAT-A-001 / LOT-A-001 -> TR-0001 / JOB-P0001 / M01
+     -> PROC_A -> TR-0003 / JOB-P0003 / M01 -> QC_A
+     -> TR-0008 / JOB-P0008 / M01 -> OUT_A -> SHIPPED
+

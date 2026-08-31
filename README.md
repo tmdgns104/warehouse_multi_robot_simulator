@@ -177,6 +177,27 @@ SERVICE, TRAFFIC WAIT, RESOURCE WAIT, FLOW HOLD, TRUE IDLE과 actual/useful/hold
 비율을 확인할 수 있습니다. Debug evidence에는 1초 이상 정지한 Robot의 STILL 시간이
 표시됩니다.
 
+## V5.4 Production Demo
+
+V5.4는 **Reference-derived layout + synthetic manufacturing scenario**입니다. 화면 배치는
+Reference에서 왔지만 PROC/QC 같은 업무 의미는 시뮬레이션 학습을 위해 정의한 것이며 영상
+속 실제 설비의 의미라고 주장하지 않습니다.
+
+Production demo에서는 WorkOrder가 Machine/Buffer 수요를 만들고, TransportRequest가
+MaterialTask로 변환되어 기존 dispatch와 traffic safety를 통해 실행됩니다. 기본 `python3
+app.py`는 Human gate가 끝날 때까지 V5.3을 유지합니다.
+
+```bash
+python3 app.py --production-demo
+python3 app.py --headless-production 300 --entities 16 --seed 1234
+python3 app.py --render-production evidence/v5_4_realistic_factory.png --motion-time 200
+python3 app.py --render-production-debug evidence/v5_4_production_debug.png --motion-time 200
+```
+
+GUI에서는 WorkOrder 진행량, 생산량, starvation/blocking, transport/WIP/buffer KPI와 Robot별
+TransportRequest type, lot, source/destination을 확인할 수 있습니다. Debug(`D`)에서는 Machine
+상태, buffer occupancy, 최근 material trace를 추가로 표시합니다.
+
 ```bash
 python3 app.py --headless-factory 300 --entities 16 --seed 1234 --factory-profile busy
 python3 app.py --render-factory evidence/v5_3_actual_fleet_motion.png --motion-time 120

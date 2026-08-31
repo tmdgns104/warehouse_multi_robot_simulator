@@ -2,13 +2,48 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V5.3
-Current Phase: TASK-009C Implemented / Automated Verification Pass / Human Actual Fleet Motion Verification Required
-Current Task: TASK-009C - Actual Fleet Motion & Continuous Factory Flow
+Current Version: V5.4
+Current Phase: TASK-009D Implemented / Automated Verification Pass / Human Realistic Factory Verification Required
+Current Task: TASK-009D - Realistic Production & Material Logistics
 
 ## Final Goal
 
 Reference 영상의 2D 자동화 시스템을 단계적으로 재현한 뒤 ROS2 Humble + Gazebo Fortress + Nav2 기반 Multi-AMR Warehouse Digital Twin으로 발전시킨다.
+
+## TASK-009D Result
+
+V5.4는 Reference에서 파생한 화면 배치 위에 **합성 제조 시나리오**를 추가한다. 영상 속
+설비의 실제 업무 의미를 확인한 것으로 주장하지 않는다.
+
+- WorkOrder 2건과 추적 가능한 MaterialUnit/Lot 20개
+- 용량 및 inbound reservation을 가진 8개 MaterialBuffer
+- WAITING_MATERIAL / PROCESSING / WAITING_UNLOAD 상태를 가진 4개 ProductionMachine
+- LINE_SUPPLY / WIP_TRANSFER / QC_TRANSFER / OUTBOUND_MOVE TransportRequest
+- 모든 production MaterialTask를 TransportRequest와 WorkOrder까지 역추적 가능
+- Material location source of truth는 MaterialUnit; MaterialLoad는 한 운송 leg의 Robot custody
+- Machine starvation/blocking이 실제 Robot delivery/unload 지연으로 누적
+- Work Order, production KPI, machine/buffer/trace 및 업무형 Robot task를 GUI에 표시
+- 기존 V5.3 기본 실행과 synthetic factory profile은 regression 용도로 보존
+
+16 robots / seed 1234 / 300 simulated seconds:
+
+- production: 6 / 20, 1.200 units/min
+- transport requests: 22 created / 20 completed
+- average lead time: 34.035s; on-time rate: 0.9000
+- WIP: 2; buffers: 12 / 52; inventory errors: 0
+- largest starvation: QC_A 240.217s
+- largest blocking: PROC_A 150.050s
+- collisions/head-on/deadlocks/obstacle penetrations: 0 / 0 / 0 / 0
+- full regression: 102 tests PASS
+
+Evidence:
+
+- `evidence/v5_4_realistic_factory.png`
+- `evidence/v5_4_production_debug.png`
+- `evidence/v5_4_material_trace.txt`
+- `evidence/v5_4_factory_stress.txt`
+
+TASK-009D is not COMPLETE until Human verifies the production GUI. TASK-010 / V6 has not started.
 
 ## V1 Baseline - Completed
 

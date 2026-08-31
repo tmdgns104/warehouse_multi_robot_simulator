@@ -184,3 +184,26 @@ Task ID나 work-state 이름만으로 실제 활동을 판정하지 않는다. W
 0.01px보다 크게 변한 robot-time만 actual motion으로 집계하고 PICK/DROP service 및
 traffic/resource/flow wait를 별도로 기록한다. BUSY workload 편중은 기존 material-flow
 link 안에서 deterministic WIP balancing으로 완화하며 global fleet optimizer는 도입하지 않는다.
+
+---
+
+## ADR-016 - Production Demand가 Transport Task를 생성
+
+Status: Accepted
+
+V5.4 production mode에서 Robot 작업은 임의 source/destination 생성기로 만들지 않는다.
+WorkOrder와 Machine/Buffer 상태가 `TransportRequest`를 만들고, 그 요청만 실행 가능한
+`MaterialTask`로 변환한다. 기존 generator는 V5.3 regression profile을 위해 보존한다.
+
+Production Domain은 Robot Control과 분리한다. 생산 계층은 왜 이동이 필요한지를 결정하고,
+기존 Factory/Traffic 계층은 어느 Robot이 안전하게 실행할지를 담당한다. V6의 전역 최적화는
+이 결정에 포함하지 않는다.
+
+## ADR-017 - MaterialUnit과 MaterialLoad의 Source of Truth 분리
+
+Status: Accepted
+
+`MaterialUnit`은 WorkOrder 전체 lifecycle에서 lot, 상태, 현재 위치를 소유하는 inventory
+source of truth다. `MaterialLoad`는 TransportRequest에서 파생된 한 번의 Robot 운송 leg와
+pickup/drop custody를 나타낸다. 동일 material의 두 객체가 각각 장기 위치를 저장하지 않으며,
+task 완료 시 ProductionEngine이 MaterialUnit 위치를 원자적으로 갱신한다.
