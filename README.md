@@ -215,6 +215,23 @@ python3 app.py --render-mission-debug evidence/v5_5_mission_debug.png --motion-t
 Mission badge 색상에는 항상 SUP/WIP/QC/OUT 텍스트가 함께 표시됩니다. `D`는 Machine,
 Buffer, 최근 trace와 내부 정지 정보를 추가하는 Debug mode입니다.
 
+## V5.6 Warehouse Inventory Demo
+
+Production Demo와 별도로 입고 → Putaway → Storage → FIFO allocation → Picking → Outbound
+Staging → Shipping lifecycle을 실행합니다. 배치는 Reference 기반이지만 창고 업무 의미는 합성
+시나리오입니다. 화면의 모든 Box는 실제 Receiving/Storage/Staging contents에서 생성됩니다.
+
+```bash
+python3 app.py --warehouse-demo
+python3 app.py --headless-warehouse 300 --entities 16 --seed 1234
+python3 app.py --render-warehouse evidence/v5_6_warehouse_overview.png --motion-time 300
+python3 app.py --render-warehouse-debug evidence/v5_6_warehouse_debug.png --motion-time 300
+```
+
+초기에는 `PUT`, 중반 이후에는 `PUT`과 `PICK` Robot badge를 함께 확인할 수 있습니다. A01,
+B05, C12 같은 box label은 SKU와 item suffix를 나타냅니다. Production Demo는 기존
+`python3 app.py --production-demo`로 그대로 실행됩니다.
+
 ```bash
 python3 app.py --headless-factory 300 --entities 16 --seed 1234 --factory-profile busy
 python3 app.py --render-factory evidence/v5_3_actual_fleet_motion.png --motion-time 120

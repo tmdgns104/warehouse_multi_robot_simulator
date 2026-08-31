@@ -1,0 +1,56 @@
+V5.6 WAREHOUSE ACCEPTANCE
+=========================
+
+Scenario: Reference-derived layout + synthetic warehouse scenario
+Robots: 16
+Seed: 1234
+Duration: 300 simulated seconds
+SKUs: SKU-A, SKU-B, SKU-C
+Storage: 6 logical locations, total capacity 24
+Receiving: RECV_A/RECV_B, capacity 8 each
+Outbound staging: OUT_STAGE_A/OUT_STAGE_B, capacity 8 each
+
+Inbound
+-------
+Orders scheduled: 5
+Items arrived: 18
+Putaway completed: 16
+Average putaway time: 64.181s
+Receiving waiting items: 0
+
+Inventory
+---------
+Stored/reserved inventory: 9 / 24
+Occupancy: 37.5%
+Outbound staging items: 3
+Items shipped: 2
+Inventory integrity errors: 0
+
+Outbound
+--------
+Orders created: 3
+Orders shipped: 1
+Average shipped-order cycle: 37.767s
+Backordered items at finish: 0
+
+Fleet
+-----
+Actual motion ratio: 0.3004
+True idle ratio: 0.5950
+Putaway and Picking were simultaneously active during the middle/late scenario.
+
+Safety / integrity
+------------------
+Collision: 0
+Head-on conflict: 0
+Deadlock: 0
+Obstacle penetration: 0
+Negative inventory: 0
+Storage overflow: 0
+Receiving overflow: 0
+Staging overflow: 0
+Duplicate item location/load ownership: 0
+Shipped-but-stored: 0
+Stored-without-location: 0
+Pick-without-allocation: 0
+Shipment with missing order item: 0

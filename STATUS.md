@@ -2,13 +2,38 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V5.5
-Current Phase: TASK-009E Implemented / Automated Verification Pass / Human Mission Visualization Verification Required
-Current Task: TASK-009E - Mission Visualization & Operational Explainability
+Current Version: V5.6
+Current Phase: TASK-009F Implemented / Automated Verification Pass / Human Warehouse Lifecycle Verification Required
+Current Task: TASK-009F - Warehouse Inventory Lifecycle
 
 ## Final Goal
 
 Reference 영상의 2D 자동화 시스템을 단계적으로 재현한 뒤 ROS2 Humble + Gazebo Fortress + Nav2 기반 Multi-AMR Warehouse Digital Twin으로 발전시킨다.
+
+## TASK-009F Result
+
+V5.6은 Production Demo를 보존하면서 별도의 **Reference-derived layout + synthetic warehouse
+scenario**를 제공한다.
+
+- 5개 scheduled InboundOrder와 SKU A/B/C InventoryItem 18개
+- capacity 8의 Receiving 2개, capacity 4의 logical StorageLocation 6개
+- deterministic SKU compatibility / same-SKU preference / stable-ID putaway policy
+- 3개 scheduled OutboundOrder와 stored-time/item-ID FIFO allocation
+- PUTAWAY/PICKING WarehouseRequest를 기존 MaterialTask/Factory/Traffic으로 실행
+- capacity reservation으로 storage/staging inbound overbooking 방지
+- READY_TO_SHIP 후 5초 business Shipping event
+- actual receiving/storage/staging contents만 Box로 렌더링
+- PUT/PICK Robot badge 및 warehouse KPI/debug event panel
+
+16 Robots / seed 1234 / 300 seconds:
+
+- inbound 18, putaway completed 16, average putaway 64.181s
+- stored/reserved inventory 9/24, staging 3, shipped items 2
+- outbound orders 3 created / 1 shipped, cycle 37.767s
+- integrity errors 0
+- collision/head-on/deadlock/obstacle penetration 0/0/0/0
+
+Human GUI verification 전 COMPLETE가 아니다. TASK-009G/V5.7 및 TASK-010/V6는 시작하지 않았다.
 
 ## TASK-009E Result
 

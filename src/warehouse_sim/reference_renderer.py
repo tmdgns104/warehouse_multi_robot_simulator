@@ -10,6 +10,7 @@ from .factory import PhysicalActivity
 from .lane_graph import LaneGraph
 from .motion import MotionEngine, MotionState
 from .mission_view import MISSION_COLORS, mission_counts, robot_mission_view
+from .warehouse_view import warehouse_box_views, warehouse_robot_view
 from .render_plan import DrawCommand, Primitive, build_render_plan
 from .task_manager import RobotWorkState
 from .lane_safety import (
@@ -247,6 +248,51 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
     return output
 
 
+def render_warehouse_with_pillow(layout, engine, output: Path, size=(1280,720), debug=False):
+    """Render every visible box from actual receiving/storage/staging contents."""
+    from PIL import Image, ImageDraw
+    image=Image.new("RGB",size,(30,30,30)); draw=ImageDraw.Draw(image)
+    sx,sy=size[0]/layout.design_width,size[1]/layout.design_height
+    _draw_pillow_commands(draw,build_render_plan(layout,reference_render_segments(layout,engine.graph),False),sx,sy)
+    _draw_pillow_commands(draw,motion_render_plan(engine),sx,sy); _draw_pillow_commands(draw,factory_status_render_plan(engine),sx,sy)
+    locations={**engine.receiving,**engine.storage,**engine.staging}
+    sku_colors={"SKU-A":(72,145,220),"SKU-B":(50,165,105),"SKU-C":(210,135,42)}
+    indices={}
+    for box in warehouse_box_views(engine):
+        loc=locations[box.location]; node=engine.graph.node(engine.stations[loc.station_id].service_node_id)
+        index=indices.get(box.location,0); indices[box.location]=index+1
+        x=node.x+(index%4)*14-21; y=node.y+(index//4)*12+8
+        draw.rectangle((x*sx,y*sy,(x+13)*sx,(y+10)*sy),fill=sku_colors[box.sku],outline=(35,35,35))
+        draw.text((x*sx+1,y*sy),box.label,fill=(255,255,255))
+    for entity in engine.entities:
+        view=warehouse_robot_view(engine,entity.id)
+        if view.mission:
+            x,y=entity.position(engine.graph); color=(28,130,82) if view.mission=="PUT" else (142,76,180)
+            draw.rounded_rectangle((x*sx+5,y*sy-16,x*sx+48,y*sy-1),3,fill=(255,255,255),outline=color,width=2)
+            draw.text((x*sx+7,y*sy-15),f"{entity.id} {view.mission}",fill=color)
+    m=engine.warehouse_metrics; f=engine.factory_metrics
+    bysku={sku:sum(i.sku==sku and i.state.value not in {"EXPECTED","SHIPPED"} for i in engine.items.values()) for sku in ("SKU-A","SKU-B","SKU-C")}
+    lines=("V5.6 WAREHOUSE INVENTORY",f"INBOUND {m.inbound_items_arrived} PUTAWAY {m.putaway_completed}",
+           f"INVENTORY {m.inventory_total}/{m.inventory_capacity} ({m.inventory_occupancy_ratio*100:.0f}%)",
+           f"ONSITE A {bysku['SKU-A']}  B {bysku['SKU-B']}  C {bysku['SKU-C']}",
+           f"OUT ORDERS {m.outbound_orders_created} SHIPPED {m.outbound_orders_shipped}",
+           f"ITEMS SHIPPED {m.outbound_items_shipped} STAGE {m.outbound_staging_count}",
+           f"BACKORDER {m.backordered_items} RECV WAIT {m.receiving_wait_count}",
+           f"MOVE {f.actual_motion_ratio*100:.1f}% IDLE {f.true_idle_ratio*100:.1f}%")
+    for i,line in enumerate(lines):draw.text((995,72+i*17),line,fill=(35,35,35))
+    y=225
+    for entity in engine.entities:
+        v=warehouse_robot_view(engine,entity.id)
+        line=f"{v.robot_id} {v.operational_state:<8}"
+        if v.mission: line+=f" | {v.mission} {v.item_id[-3:]} {v.source}>{v.destination}"
+        draw.text((995,y),line,fill=(45,45,45));y+=14
+    if debug:
+        debug_lines=tuple(f"{l.id:<11} {l.occupied}/{l.capacity} +{len(l.reservations)}" for l in (*engine.receiving.values(),*engine.storage.values(),*engine.staging.values()))
+        debug_lines+=tuple(f"{e.time:5.1f} {e.event} {e.item_id or e.order_id or '-'}" for e in engine.events[-6:])
+        for i,line in enumerate(debug_lines[-12:]):draw.text((995,465+i*18),line,fill=(80,45,45))
+    output.parent.mkdir(parents=True,exist_ok=True);image.save(output);return output
+
+
 class ReferenceLayoutUI:
     """Small pygame shell around the backend-neutral V2 render plan."""
 
@@ -265,7 +311,8 @@ class ReferenceLayoutUI:
         self.size = size
         self.screen = pygame.display.set_mode(size, pygame.RESIZABLE)
         pygame.display.set_caption(
-            ("Warehouse Multi-Robot Factory - V5.5" if engine is not None and hasattr(engine, "production_metrics")
+            ("Warehouse Multi-Robot Inventory Digital Twin - V5.6" if engine is not None and hasattr(engine,"warehouse_metrics")
+             else "Warehouse Multi-Robot Factory - V5.5" if engine is not None and hasattr(engine, "production_metrics")
              else "Warehouse Multi-Robot Factory - V5.3") if engine is not None and hasattr(engine, "factory_metrics")
             else "Warehouse Multi-Robot Traffic - V4"
         )
@@ -359,6 +406,23 @@ class ReferenceLayoutUI:
                         center = (round(ox + node.x * scale), round(oy + node.y * scale))
                         pygame.draw.circle(self.screen, color, center, max(6, round(8 * scale)), 2)
                         self.screen.blit(badge_font.render(text, True, color), (center[0] - 3, center[1] - 7))
+        if self.engine is not None and hasattr(self.engine,"warehouse_metrics"):
+            badge_font=pygame.font.SysFont("consolas",max(8,round(9*scale)),bold=True)
+            sku_colors={"SKU-A":(72,145,220),"SKU-B":(50,165,105),"SKU-C":(210,135,42)}
+            locations={**self.engine.receiving,**self.engine.storage,**self.engine.staging}
+            indices={}
+            for box in warehouse_box_views(self.engine):
+                loc=locations[box.location];node=self.graph.node(self.engine.stations[loc.station_id].service_node_id)
+                index=indices.get(box.location,0);indices[box.location]=index+1
+                x=node.x+(index%4)*14-21;y=node.y+(index//4)*12+8
+                rect=pygame.Rect(round(ox+x*scale),round(oy+y*scale),max(8,round(13*scale)),max(7,round(10*scale)))
+                pygame.draw.rect(self.screen,sku_colors[box.sku],rect);pygame.draw.rect(self.screen,(35,35,35),rect,1)
+                self.screen.blit(badge_font.render(box.label,True,(255,255,255)),rect.topleft)
+            for entity in self.engine.entities:
+                view=warehouse_robot_view(self.engine,entity.id)
+                if not view.mission: continue
+                x,y=entity.position(self.graph); color=(28,130,82) if view.mission=="PUT" else (142,76,180)
+                self.screen.blit(badge_font.render(f"{entity.id} {view.mission}",True,color,(255,255,255)),(round(ox+(x+6)*scale),round(oy+(y-15)*scale)))
         if self.show_topology_debug and self.graph is not None:
             for obstacle in driving_obstacles(self.layout):
                 expanded = pygame.Rect(_scaled_rect(
@@ -418,6 +482,13 @@ class ReferenceLayoutUI:
                     f"{row.mission:<6} {row.active:2d}/{row.completed:2d}"
                     for row in mission_counts(self.engine)
                 )
+            elif hasattr(self.engine,"warehouse_metrics"):
+                warehouse=self.engine.warehouse_metrics
+                panel_lines=("V5.6 WAREHOUSE INVENTORY",f"INBOUND {warehouse.inbound_items_arrived} PUT {warehouse.putaway_completed}",
+                    f"INVENTORY {warehouse.inventory_total}/{warehouse.inventory_capacity}",
+                    f"OUT ORDERS {warehouse.outbound_orders_created} SHIPPED {warehouse.outbound_orders_shipped}",
+                    f"ITEM SHIPPED {warehouse.outbound_items_shipped} STAGE {warehouse.outbound_staging_count}",
+                    f"BACKORDER {warehouse.backordered_items} RECV WAIT {warehouse.receiving_wait_count}")
             panel_x = round(ox + 990 * scale)
             panel_y = round(oy + 72 * scale)
             for index, line in enumerate(panel_lines):
@@ -428,9 +499,13 @@ class ReferenceLayoutUI:
                                  else max(160, round(180 * scale)))
             for entity in self.engine.entities[:16]:
                 task_id = self.engine.robot_tasks[entity.id] or "-"
-                line = (_production_robot_line(self.engine, entity)
-                        if hasattr(self.engine, "production_metrics")
-                        else f"{entity.id} {self.engine.activity_states[entity.id].value:<12} {task_id}")
+                if hasattr(self.engine,"warehouse_metrics"):
+                    view=warehouse_robot_view(self.engine,entity.id)
+                    line=f"{entity.id} {view.operational_state:<8}"+(f" | {view.mission} {view.item_id[-3:]} {view.source}>{view.destination}" if view.mission else "")
+                else:
+                    line = (_production_robot_line(self.engine, entity)
+                            if hasattr(self.engine, "production_metrics")
+                            else f"{entity.id} {self.engine.activity_states[entity.id].value:<12} {task_id}")
                 if self.show_topology_debug and self.engine.continuous_stationary_time[entity.id] >= 1.0:
                     line += f" STILL {self.engine.continuous_stationary_time[entity.id]:.1f}s"
                 label = font.render(line, True, (45, 45, 45))

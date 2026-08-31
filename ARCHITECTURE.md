@@ -560,6 +560,27 @@ Operational State는 Robot이 물리적으로 무엇을 하는지를, Business M
 planner를 다시 호출하지 않고 `entity.route[entity.route_index:]`를 그대로 표시하므로 실제
 실행 route와 renderer route가 일치한다.
 
+## V5.6 Warehouse Inventory Lifecycle
+
+Production과 독립된 `WarehouseEngine`이 inbound arrival, inventory, outbound allocation과
+shipping boundary event를 소유한다. Robot 실행은 기존 FactoryEngine에 위임한다.
+
+```text
+InboundOrder -> InventoryItem -> WarehouseRequest(PUTAWAY)
+ -> MaterialTask -> Robot -> StorageLocation
+ -> OutboundOrder/FIFO allocation -> WarehouseRequest(PICKING)
+ -> MaterialTask -> Robot -> OutboundStaging -> Shipping event
+```
+
+`InventoryItem.current_location`이 장기 위치의 source of truth이며 location contents는 검증 및
+capacity 인덱스다. 운송 중에는 current_location이 `None`이고 기존 MaterialLoad만 Robot custody를
+표현한다. Storage/Staging destination은 request 생성 시 capacity를 예약한다. Warehouse business
+layer는 Robot/battery를 직접 다루지 않으므로 향후 V5.7 Charge service request를 별도 계층으로
+추가할 수 있다.
+
+Storage는 기존 obstacle-safe Station에 연결된 logical overlay이며 physical obstacle geometry와
+SafeLaneGraph를 변경하지 않는다.
+
 ### Testing Strategy
 
 ### V2~V7

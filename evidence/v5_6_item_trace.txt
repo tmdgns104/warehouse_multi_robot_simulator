@@ -1,0 +1,27 @@
+V5.6 END-TO-END ITEM TRACE
+==========================
+
+Item: ITEM-002
+SKU: SKU-A
+Lot: LOT-A-002
+Inbound order: IB-001
+Outbound order: SO-001
+Final state: SHIPPED
+Final location: external / none
+
+Time (s)  Event       Robot  Request   Location / transition
+--------  ----------  -----  --------  ---------------------------
+   0.000  ARRIVED       -       -      RECV_A
+   0.000  REQUESTED     -     WR-0002  RECV_A -> RACK-A01
+  13.033  PICKED_UP    M02    WR-0002  RECV_A
+  21.417  DROPPED      M02    WR-0002  RACK-A01 (STORED)
+  90.017  ALLOCATED     -       -      SO-001 / FIFO
+  90.017  REQUESTED     -     WR-0013  RACK-A01 -> OUT_STAGE_A
+  95.150  PICKED_UP    M04    WR-0013  RACK-A01
+ 114.717  DROPPED      M04    WR-0013  OUT_STAGE_A
+ 122.750  ORDER READY   -       -      SO-001
+ 127.767  SHIPPED       -       -      warehouse boundary exit
+
+Chain:
+IB-001 -> RECV_A -> M02 PUTAWAY -> RACK-A01 -> SO-001 allocation
+       -> M04 PICKING -> OUT_STAGE_A -> READY_TO_SHIP -> SHIPPED

@@ -30,6 +30,13 @@ from .mission_view import (
     MISSION_COLORS, MISSION_LABELS, MissionCount, RobotMissionView,
     all_robot_missions, mission_counts, robot_mission_view,
 )
+from .warehouse import (
+    InboundOrder, InboundState, InventoryItem, InventoryLocation, InventoryState,
+    OutboundOrder, OutboundState, WarehouseEngine, WarehouseEvent, WarehouseMetrics,
+    WarehouseRequest, WarehouseRequestState, WarehouseRequestType,
+)
+from .reference_warehouse_scenario import create_reference_warehouse_scenario
+from .warehouse_view import WarehouseBoxView, WarehouseRobotView, warehouse_box_views, warehouse_robot_view, warehouse_robot_views
 from .production import (
     MachineState,
     MaterialBuffer,
