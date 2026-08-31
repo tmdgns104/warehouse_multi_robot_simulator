@@ -1,0 +1,58 @@
+TASK-009C / V5.3 Actual Fleet Motion Evidence
+Seed: 1234
+Step: 1/60 second
+Warm-up: 10 seconds
+Movement epsilon: 0.01 px per update
+
+Historical 16-robot comparison
+V5: completed=46 legacy_utilization=0.2710 idle_end=11 cycle=50.066
+V5.1: completed=70 productive=0.4291 idle_ratio=0.4412 cycle=60.350
+V5.2: completed=87 state_holding_robot_seconds=1366.733 cycle=80.600
+
+V5.2 position-instrumented baseline, 16 robots / 300 seconds
+completed=87
+actual_motion_ratio=0.8036 service_ratio=0.0758 useful_activity_ratio=0.8795
+traffic_wait_ratio=0.0148 resource_wait_ratio=0.0187
+position_stationary_holding_ratio=0.0861 operational_ratio=0.9130
+average_moving_robots=12.858 average_holding_robots=1.378
+max_continuous_stationary=44.917 long_stationary_events=31
+fleet_distance=140668.547 cycle=80.600
+Root cause: random link generation and priority-only dispatch ended with 6 active
+PROC_A->QC_A plus 6 active QC_A->OUT_A tasks while other links had only 0-2.
+
+V5.3 ACCEPTANCE, 16 robots / 300 seconds
+completion_checkpoints_100_200_300=33,76,116
+tasks_created=144 tasks_completed=116
+actual_motion_ratio=0.8150 service_ratio=0.1007 useful_activity_ratio=0.9157
+traffic_wait_ratio=0.0172 resource_wait_ratio=0.0651
+holding_ratio=0.0020 operational_ratio=0.9980 true_idle_ratio=0.0000
+average_moving_robots=13.041 average_service_robots=1.610
+average_holding_robots=0.033 average_traffic_wait_robots=0.275
+average_resource_wait_robots=1.041
+max_continuous_stationary=17.783 long_holding_stationary_events=2
+fleet_distance=143849.367 cycle=60.287 pickup_wait=16.784
+direct_handoffs=116 parking_returns=0
+collision=0 head_on=0 deadlock=0 obstacle_penetration=0 indefinite_wait_current=0
+reservation_leaks=0 duplicate_load_ownership=0
+
+V5.3 SCALABILITY, 24 robots / 300 seconds
+completion_checkpoints_100_200_300=34,82,127
+tasks_created=163 tasks_completed=127
+actual_motion_ratio=0.7381 service_ratio=0.0747 useful_activity_ratio=0.8128
+traffic_wait_ratio=0.0882 resource_wait_ratio=0.0699
+holding_ratio=0.0292 operational_ratio=0.9708 true_idle_ratio=0.0000
+average_moving_robots=17.714 average_service_robots=1.792
+average_holding_robots=0.700 average_traffic_wait_robots=2.116
+average_resource_wait_robots=1.678
+max_continuous_stationary=20.967 long_holding_stationary_events=33
+fleet_distance=194551.926 cycle=70.298 pickup_wait=22.081
+direct_handoffs=127 parking_returns=0
+collision=0 head_on=0 deadlock=0 obstacle_penetration=0 indefinite_wait_current=0
+reservation_leaks=0 duplicate_load_ownership=0
+
+Policy
+- BUSY/STRESS generate only the six existing real flow links, balanced by generated WIP.
+- Dispatch prefers free source staging, then low active-link WIP and station pressure.
+- Service capacity remains one.
+- Staging expands from two to three distinct obstacle-safe non-hub LaneNodes per station.
+- No random patrol, dummy job, teleport, or Traffic Controller bypass exists.

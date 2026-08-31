@@ -20,6 +20,7 @@ from .factory import (
     FactoryEngine,
     FactoryMetrics,
     FactoryProfile,
+    PhysicalActivity,
     FactoryTaskGenerator,
     factory_config_for_profile,
 )
@@ -64,6 +65,7 @@ __all__ = [
     "FactoryEngine",
     "FactoryMetrics",
     "FactoryProfile",
+    "PhysicalActivity",
     "FactoryTaskGenerator",
     "factory_config_for_profile",
     "FactoryTaskManager",

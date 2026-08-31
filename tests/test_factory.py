@@ -4,6 +4,7 @@ from warehouse_sim.factory import (
     FactoryConfig,
     FactoryProfile,
     FactoryTaskGenerator,
+    PhysicalActivity,
     factory_config_for_profile,
 )
 from warehouse_sim.graph_planner import graph_astar
@@ -333,3 +334,99 @@ def test_late_service_reservation_occurs_after_staging_wait():
     assert metrics.late_service_reservations > 0
     assert metrics.max_station_queue_length > 0
     assert metrics.true_idle_robot_count == 0
+
+
+def test_actual_motion_detection_uses_position_delta_not_work_state_name():
+    scenario = create_reference_factory_scenario(2, seed=2, profile="busy")
+    entity = scenario.engine.entities[0]
+    scenario.engine.work_states[entity.id] = RobotWorkState.TASK_HOLDING
+    assert scenario.engine._classify_physical_activity(entity, 0.02) == PhysicalActivity.ACTUALLY_MOVING
+    scenario.engine.work_states[entity.id] = RobotWorkState.TO_PICKUP
+    assert scenario.engine._classify_physical_activity(entity, 0.0) != PhysicalActivity.ACTUALLY_MOVING
+
+
+@pytest.mark.parametrize("state", [RobotWorkState.PICKING, RobotWorkState.DROPPING])
+def test_pickup_and_drop_are_measured_as_service(state):
+    scenario = create_reference_factory_scenario(2, seed=3, profile="busy")
+    entity = scenario.engine.entities[0]
+    scenario.engine.work_states[entity.id] = state
+    assert scenario.engine._classify_physical_activity(entity, 0.0) == PhysicalActivity.SERVICING
+
+
+def test_resource_traffic_holding_and_true_idle_activity_classification():
+    scenario = create_reference_factory_scenario(2, seed=4, profile="busy")
+    engine, entity = scenario.engine, scenario.engine.entities[0]
+    engine.update(0.05)
+    entity.state = entity.state.WAITING
+    assert engine._classify_physical_activity(entity, 0.0) == PhysicalActivity.TRAFFIC_WAIT
+    entity.state = entity.state.ARRIVED
+    engine.work_states[entity.id] = RobotWorkState.WAITING_SOURCE
+    assert engine._classify_physical_activity(entity, 0.0) == PhysicalActivity.RESOURCE_WAIT
+    engine.work_states[entity.id] = RobotWorkState.TASK_HOLDING
+    assert engine._classify_physical_activity(entity, 0.0) == PhysicalActivity.HOLDING
+    engine.robot_tasks[entity.id] = None
+    engine.work_states[entity.id] = RobotWorkState.IDLE
+    assert engine._classify_physical_activity(entity, 0.0) == PhysicalActivity.TRUE_IDLE
+
+
+def test_position_movement_resets_stationary_timer_and_accumulates_distance():
+    scenario = create_reference_factory_scenario(4, seed=5, profile="busy")
+    advance(scenario.engine, 20)
+    engine = scenario.engine
+    assert engine.factory_metrics.fleet_total_distance > 0
+    assert any(value > 0 for value in engine.distance_travelled.values())
+    assert any(value < engine.elapsed_time for value in engine.continuous_stationary_time.values())
+
+
+def test_busy_generator_balances_only_real_material_flow_links():
+    scenario = create_reference_factory_scenario(16, seed=1234, profile="busy")
+    advance(scenario.engine, 60)
+    diagnostics = scenario.engine.flow_diagnostics
+    assert set(diagnostics) == {
+        (source, destination)
+        for flow in scenario.engine.flows for source, destination in zip(flow, flow[1:])
+    }
+    generated = [values["generated"] for values in diagnostics.values()]
+    assert max(generated) - min(generated) <= 1
+
+
+def test_staging_free_candidate_is_preferred_by_bounded_busy_dispatch():
+    scenario = create_reference_factory_scenario(4, seed=6, profile="busy")
+    scenario.engine.update(0.05)
+    assert all(scenario.engine.robot_tasks[entity.id] for entity in scenario.engine.entities)
+    assert scenario.engine.config.balance_workload
+    assert all(len(station.staging_node_ids) == 3 for station in scenario.engine.stations.values())
+
+
+def test_station_diagnostics_report_capacity_one_service_and_physical_staging():
+    scenario = create_reference_factory_scenario(8, seed=8, profile="busy")
+    advance(scenario.engine, 30)
+    for values in scenario.engine.station_diagnostics.values():
+        assert 0 <= values["staging_occupied"] <= values["staging_capacity"]
+        assert 0 <= values["service_utilization"] <= 1
+    assert len(scenario.engine.station_reservations) <= len(scenario.engine.stations)
+
+
+def test_busy_actual_activity_metrics_are_position_based_and_partition_time():
+    scenario = create_reference_factory_scenario(16, seed=1234, profile="busy")
+    advance(scenario.engine, 90)
+    metrics = scenario.engine.factory_metrics
+    assert metrics.actual_motion_ratio > 0.65
+    assert metrics.useful_activity_ratio > 0.75
+    assert metrics.holding_ratio < 0.10
+    assert metrics.average_actually_moving_robots > 10
+    assert sum((metrics.actual_motion_ratio, metrics.service_ratio, metrics.traffic_wait_ratio,
+                metrics.resource_wait_ratio, metrics.holding_ratio, metrics.true_idle_ratio)) == pytest.approx(1)
+
+
+def test_same_seed_reproduces_actual_motion_metrics():
+    first = create_reference_factory_scenario(8, seed=41, profile="busy")
+    second = create_reference_factory_scenario(8, seed=41, profile="busy")
+    advance(first.engine, 30)
+    advance(second.engine, 30)
+    assert first.engine.factory_metrics.actual_motion_ratio == pytest.approx(
+        second.engine.factory_metrics.actual_motion_ratio
+    )
+    assert first.engine.factory_metrics.fleet_total_distance == pytest.approx(
+        second.engine.factory_metrics.fleet_total_distance
+    )

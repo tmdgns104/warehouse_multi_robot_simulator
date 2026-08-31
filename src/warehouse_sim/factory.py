@@ -4,6 +4,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from enum import Enum
+from math import hypot
 from typing import Iterable
 
 from .graph_planner import graph_astar
@@ -20,6 +21,7 @@ class FactoryConfig:
     queue_target: int = 6
     max_active_tasks: int = 10
     engagement_warmup: float = 10.0
+    balance_workload: bool = False
 
 
 class FactoryProfile(str, Enum):
@@ -29,14 +31,23 @@ class FactoryProfile(str, Enum):
     STRESS = "stress"
 
 
+class PhysicalActivity(str, Enum):
+    ACTUALLY_MOVING = "MOVING"
+    SERVICING = "SERVICE"
+    TRAFFIC_WAIT = "TRAFFIC_WAIT"
+    RESOURCE_WAIT = "RESOURCE_WAIT"
+    HOLDING = "FLOW_HOLD"
+    TRUE_IDLE = "TRUE_IDLE"
+
+
 def factory_config_for_profile(profile: FactoryProfile | str) -> FactoryConfig:
     return {
         FactoryProfile.LIGHT: FactoryConfig(queue_target=4, max_active_tasks=6),
         FactoryProfile.NORMAL: FactoryConfig(queue_target=6, max_active_tasks=10),
         # Replenishment runs every tick, so a 12-item visible backlog can feed
         # more than 16 active assignments without inflating the queue panel.
-        FactoryProfile.BUSY: FactoryConfig(queue_target=12, max_active_tasks=64),
-        FactoryProfile.STRESS: FactoryConfig(queue_target=48, max_active_tasks=64),
+        FactoryProfile.BUSY: FactoryConfig(queue_target=12, max_active_tasks=64, balance_workload=True),
+        FactoryProfile.STRESS: FactoryConfig(queue_target=48, max_active_tasks=64, balance_workload=True),
     }[FactoryProfile(profile)]
 
 
@@ -85,6 +96,23 @@ class FactoryMetrics:
     staging_capacity_blocks: int
     late_service_reservations: int
     station_service_utilization: float
+    actual_motion_ratio: float
+    service_ratio: float
+    traffic_wait_ratio: float
+    resource_wait_ratio: float
+    holding_ratio: float
+    useful_activity_ratio: float
+    operational_ratio: float
+    average_actually_moving_robots: float
+    average_servicing_robots: float
+    average_holding_robots: float
+    average_traffic_waiting_robots: float
+    average_resource_waiting_robots: float
+    max_continuous_stationary_time: float
+    per_robot_max_stationary_time: tuple[tuple[str, float], ...]
+    long_stationary_events: int
+    fleet_total_distance: float
+    actual_distance_travelled_per_robot: tuple[tuple[str, float], ...]
 
     @property
     def assignment_blocked_station(self) -> int:
@@ -98,8 +126,8 @@ class FactoryTaskGenerator:
             raise ValueError("Factory generator needs at least one material-flow link")
         self.random, self.sequence = random.Random(seed), 0
 
-    def create(self, now: float) -> tuple[MaterialTask, MaterialLoad]:
-        source, destination = self.links[self.random.randrange(len(self.links))]
+    def create(self, now: float, link: tuple[str, str] | None = None) -> tuple[MaterialTask, MaterialLoad]:
+        source, destination = link or self.links[self.random.randrange(len(self.links))]
         self.sequence += 1
         task_id, load_id = f"JOB-{self.sequence:04d}", f"LOAD-{self.sequence:04d}"
         task = MaterialTask(task_id, source, destination, load_id,
@@ -140,6 +168,15 @@ class FactoryEngine:
         self._engaged_robot_time = self._true_idle_robot_time = self._engagement_measure_time = 0.0
         self._source_queue_time = self._destination_queue_time = 0.0
         self._service_task_time = 0.0
+        self.station_service_time = {station_id: 0.0 for station_id in self.stations}
+        self._physical_time = {activity: 0.0 for activity in PhysicalActivity}
+        self.activity_states = {e.id: PhysicalActivity.TRUE_IDLE for e in self.entities}
+        self.previous_positions = {e.id: e.position(self.graph) for e in self.entities}
+        self.continuous_stationary_time = {e.id: 0.0 for e in self.entities}
+        self.max_stationary_time = {e.id: 0.0 for e in self.entities}
+        self.distance_travelled = {e.id: 0.0 for e in self.entities}
+        self._long_stationary_active = {e.id: False for e in self.entities}
+        self.long_stationary_events = 0
         self.source_wait_time = self.destination_wait_time = self.holding_wait_time = 0.0
         self.max_station_queue_length = self.staging_capacity_blocks = self.late_service_reservations = 0
         self._staging_blocked_tasks: set[str] = set()
@@ -158,7 +195,17 @@ class FactoryEngine:
 
     def _replenish_queue(self) -> None:
         while len(self.task_manager.queued) < self.config.queue_target:
-            self.task_manager.create_task(*self.generator.create(self.elapsed_time))
+            link = None
+            if self.config.balance_workload:
+                counts = {
+                    candidate: sum(
+                        (task.source_station_id, task.destination_station_id) == candidate
+                        for task in self.task_manager.tasks.values()
+                    )
+                    for candidate in self.generator.links
+                }
+                link = min(self.generator.links, key=lambda candidate: (counts[candidate], candidate))
+            self.task_manager.create_task(*self.generator.create(self.elapsed_time, link))
 
     def _route_length(self, start: str, goal: str) -> float | None:
         route = graph_astar(self.graph, start, goal)
@@ -244,11 +291,31 @@ class FactoryEngine:
     def _dispatch_entity(self, entity: LaneMobileEntity, *, direct: bool = False) -> bool:
         if len(self.task_manager.active) >= self.config.max_active_tasks:
             return False
+        choices = []
         for task in self.task_manager.queued:
-            if self._route_length(entity.current_node, self.stations[task.source_station_id].service_node_id) is not None:
+            distance = self._route_length(entity.current_node, self.stations[task.source_station_id].service_node_id)
+            if distance is None:
+                self._record_block(task, "no_route")
+                continue
+            if not self.config.balance_workload:
                 self._assign(task, entity, direct=direct)
                 return True
-            self._record_block(task, "no_route")
+            source = self.stations[task.source_station_id]
+            staging_free = any(node not in self.staging_reservations for node in source.staging_node_ids)
+            link = (task.source_station_id, task.destination_station_id)
+            link_wip = sum(
+                (active.source_station_id, active.destination_station_id) == link
+                for active in self.task_manager.active
+            )
+            pressure = (
+                len(self.source_wait_queues[task.source_station_id])
+                + len(self.destination_wait_queues[task.destination_station_id])
+            )
+            choices.append((not staging_free, link_wip, pressure, -task.priority,
+                            distance, task.created_time, task.id, task))
+        if choices:
+            self._assign(min(choices)[-1], entity, direct=direct)
+            return True
         return False
 
     def _assign_tasks(self) -> None:
@@ -388,6 +455,57 @@ class FactoryEngine:
         return task_id is not None and self.task_manager.tasks[task_id].state not in {
             TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELLED}
 
+    def _classify_physical_activity(self, entity: LaneMobileEntity, distance: float) -> PhysicalActivity:
+        if distance > 0.01:
+            return PhysicalActivity.ACTUALLY_MOVING
+        state = self.work_states[entity.id]
+        if state in {RobotWorkState.PICKING, RobotWorkState.DROPPING}:
+            return PhysicalActivity.SERVICING
+        if entity.state == MotionState.WAITING and self._engaged(entity.id):
+            return PhysicalActivity.TRAFFIC_WAIT
+        if state in {RobotWorkState.WAITING_SOURCE, RobotWorkState.WAITING_DESTINATION}:
+            return PhysicalActivity.RESOURCE_WAIT
+        if state == RobotWorkState.TASK_HOLDING and self._engaged(entity.id):
+            return PhysicalActivity.HOLDING
+        if self._engaged(entity.id):
+            # A one-tick planning/phase handoff is legitimate task-resource wait,
+            # but never position-based movement.
+            return PhysicalActivity.RESOURCE_WAIT
+        return PhysicalActivity.TRUE_IDLE
+
+    def _measure_physical_activity(self, delta_time: float) -> None:
+        if delta_time < 1e-6:
+            return
+        measured = min(delta_time, max(0.0, self.elapsed_time - self.config.engagement_warmup))
+        for entity in self.entities:
+            current = entity.position(self.graph)
+            previous = self.previous_positions[entity.id]
+            distance = hypot(current[0] - previous[0], current[1] - previous[1])
+            self.previous_positions[entity.id] = current
+            self.distance_travelled[entity.id] += distance
+            activity = self._classify_physical_activity(entity, distance)
+            self.activity_states[entity.id] = activity
+            if self.elapsed_time <= self.config.engagement_warmup:
+                self.continuous_stationary_time[entity.id] = 0.0
+                self._long_stationary_active[entity.id] = False
+                continue
+            if distance > 0.01:
+                self.continuous_stationary_time[entity.id] = 0.0
+                self._long_stationary_active[entity.id] = False
+            else:
+                self.continuous_stationary_time[entity.id] += delta_time
+                self.max_stationary_time[entity.id] = max(
+                    self.max_stationary_time[entity.id], self.continuous_stationary_time[entity.id]
+                )
+                bad = activity in {PhysicalActivity.HOLDING, PhysicalActivity.TRUE_IDLE}
+                if (bad and self.elapsed_time > self.config.engagement_warmup
+                        and self.continuous_stationary_time[entity.id] >= 5.0
+                        and not self._long_stationary_active[entity.id]):
+                    self.long_stationary_events += 1
+                    self._long_stationary_active[entity.id] = True
+            if measured > 0:
+                self._physical_time[activity] += measured
+
     def _validate_factory_reservations(self) -> None:
         if len(set(self.station_reservations.values())) != len(self.station_reservations):
             raise AssertionError("A task owns more than one station service")
@@ -418,6 +536,7 @@ class FactoryEngine:
             self._recover_factory_traffic_wait(entity)
             self._advance_work(entity, delta_time)
         self._schedule_approaches()
+        self._measure_physical_activity(delta_time)
         productive = {RobotWorkState.TO_SOURCE_STAGING, RobotWorkState.TO_PICKUP, RobotWorkState.PICKING,
                       RobotWorkState.TO_DESTINATION_STAGING, RobotWorkState.CARRYING, RobotWorkState.DROPPING}
         waiting = {RobotWorkState.WAITING_SOURCE, RobotWorkState.WAITING_DESTINATION, RobotWorkState.TASK_HOLDING}
@@ -434,6 +553,8 @@ class FactoryEngine:
         self._source_queue_time += sum(map(len, self.source_wait_queues.values())) * delta_time
         self._destination_queue_time += sum(map(len, self.destination_wait_queues.values())) * delta_time
         self._service_task_time += len(self.station_reservations) * delta_time
+        for station_id in self.station_reservations:
+            self.station_service_time[station_id] += delta_time
         if self.elapsed_time > self.config.engagement_warmup:
             measured = min(delta_time, self.elapsed_time - self.config.engagement_warmup)
             engaged = sum(self._engaged(e.id) for e in self.entities)
@@ -465,6 +586,12 @@ class FactoryEngine:
         et = max(self.elapsed_time * len(self.entities), 1e-12)
         mt = max(self._engagement_measure_time * len(self.entities), 1e-12)
         engaged_now = sum(self._engaged(e.id) for e in self.entities)
+        physical_seconds = max(self._engagement_measure_time * len(self.entities), 1e-12)
+        move = self._physical_time[PhysicalActivity.ACTUALLY_MOVING]
+        service = self._physical_time[PhysicalActivity.SERVICING]
+        traffic_wait = self._physical_time[PhysicalActivity.TRAFFIC_WAIT]
+        resource_wait = self._physical_time[PhysicalActivity.RESOURCE_WAIT]
+        holding = self._physical_time[PhysicalActivity.HOLDING]
         return FactoryMetrics(
             len(self.task_manager.tasks), len(self.task_manager.queued), len(self.task_manager.active), len(completed),
             sum(cycle)/len(cycle) if cycle else 0.0, sum(pickup)/len(pickup) if pickup else 0.0,
@@ -487,4 +614,56 @@ class FactoryEngine:
             self._source_queue_time/max(self.elapsed_time, 1e-12),
             self._destination_queue_time/max(self.elapsed_time, 1e-12), self.max_station_queue_length,
             self.staging_capacity_blocks, self.late_service_reservations,
-            self._service_task_time/max(self.elapsed_time * len(self.stations), 1e-12))
+            self._service_task_time/max(self.elapsed_time * len(self.stations), 1e-12),
+            move/physical_seconds, service/physical_seconds, traffic_wait/physical_seconds,
+            resource_wait/physical_seconds, holding/physical_seconds,
+            (move+service)/physical_seconds,
+            (move+service+traffic_wait+resource_wait)/physical_seconds,
+            move/max(self._engagement_measure_time, 1e-12),
+            service/max(self._engagement_measure_time, 1e-12),
+            holding/max(self._engagement_measure_time, 1e-12),
+            traffic_wait/max(self._engagement_measure_time, 1e-12),
+            resource_wait/max(self._engagement_measure_time, 1e-12),
+            max(self.max_stationary_time.values(), default=0.0),
+            tuple(sorted(self.max_stationary_time.items())), self.long_stationary_events,
+            sum(self.distance_travelled.values()), tuple(sorted(self.distance_travelled.items())))
+
+    @property
+    def station_diagnostics(self) -> dict[str, dict[str, object]]:
+        diagnostics = {}
+        for station_id, station in self.stations.items():
+            holding = sum(
+                self.work_states[entity.id] == RobotWorkState.TASK_HOLDING
+                and self.robot_tasks[entity.id] is not None
+                and station_id in {
+                    self.task_manager.tasks[self.robot_tasks[entity.id]].source_station_id,
+                    self.task_manager.tasks[self.robot_tasks[entity.id]].destination_station_id,
+                }
+                for entity in self.entities
+            )
+            diagnostics[station_id] = {
+                "service_owner": self.station_reservations.get(station_id),
+                "service_utilization": self.station_service_time[station_id] / max(self.elapsed_time, 1e-12),
+                "staging_occupied": sum(node in self.staging_reservations for node in station.staging_node_ids),
+                "staging_capacity": len(station.staging_node_ids),
+                "source_queue": len(self.source_wait_queues[station_id]),
+                "destination_queue": len(self.destination_wait_queues[station_id]),
+                "holding_backlog": holding,
+            }
+        return diagnostics
+
+    @property
+    def flow_diagnostics(self) -> dict[tuple[str, str], dict[str, float | int]]:
+        result = {}
+        for link in self.generator.links:
+            tasks = [t for t in self.task_manager.tasks.values()
+                     if (t.source_station_id, t.destination_station_id) == link]
+            completed = [t for t in tasks if t.state == TaskState.COMPLETED]
+            cycles = [t.completed_time - t.created_time for t in completed]
+            result[link] = {
+                "generated": len(tasks),
+                "active": sum(t in self.task_manager.active for t in tasks),
+                "completed": len(completed),
+                "average_cycle": sum(cycles) / len(cycles) if cycles else 0.0,
+            }
+        return result

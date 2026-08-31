@@ -29,7 +29,7 @@ def _service_node(graph, x: float, y: float, used: set[str]) -> str:
     return node.id
 
 
-def _staging_nodes(graph, service_node_id: str, used: set[str], count: int = 2) -> tuple[str, ...]:
+def _staging_nodes(graph, service_node_id: str, used: set[str], count: int = 3) -> tuple[str, ...]:
     """Choose nearby non-junction lane nodes so waiting does not occupy a hub."""
     service = graph.node(service_node_id)
     candidates = sorted(

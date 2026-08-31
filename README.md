@@ -136,9 +136,9 @@ V4 화면 키:
 - `D`: LaneNode, Machine bounds, 7px clearance debug overlay 전환
 - `Q` 또는 `Esc`: 종료
 
-기본 실행은 V5.2 Full Fleet Engagement Factory Flow입니다. BUSY profile의 16대 Robot은
-모두 실제 MaterialTask를 배정받고 staging 또는 remote task holding에서 안전하게
-service 순서를 기다립니다.
+기본 실행은 V5.3 Actual Fleet Motion Factory Flow입니다. BUSY profile은 실제 기존
+Material Flow link를 균등하게 공급하고 staging/WIP pressure를 고려해 16대 Robot이
+연속적인 source → pick → destination → drop 흐름을 수행하게 합니다.
 
 ```bash
 python app.py
@@ -170,6 +170,17 @@ panel에서 M01~M16의 task ID, PRODUCTIVE, TASK WAIT, ENGAGED, TRUE IDLE을 확
 ```bash
 python3 app.py --headless-factory 300 --entities 16 --seed 1234 --factory-profile busy
 python3 app.py --render-factory-debug evidence/v5_2_staging_queue_debug.png --motion-time 120
+```
+
+V5.3 panel은 상태명이 아니라 실제 position delta로 MOVING을 판정합니다. MOVE,
+SERVICE, TRAFFIC WAIT, RESOURCE WAIT, FLOW HOLD, TRUE IDLE과 actual/useful/holding
+비율을 확인할 수 있습니다. Debug evidence에는 1초 이상 정지한 Robot의 STILL 시간이
+표시됩니다.
+
+```bash
+python3 app.py --headless-factory 300 --entities 16 --seed 1234 --factory-profile busy
+python3 app.py --render-factory evidence/v5_3_actual_fleet_motion.png --motion-time 120
+python3 app.py --render-factory-debug evidence/v5_3_motion_debug.png --motion-time 120
 ```
 
 기존 V4 random traffic demo는 `python app.py --traffic-demo`로 보존됩니다.

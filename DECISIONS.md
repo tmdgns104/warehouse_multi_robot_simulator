@@ -173,3 +173,14 @@ entry permission 시점부터 pickup/drop 종료까지만 명시적으로 예약
 
 `TASK_HOLDING`은 assigned nonterminal task가 있는 factory resource wait이며 IDLE이나
 dummy patrol이 아니다. 모든 이동은 기존 Traffic Controller와 Safe LaneGraph를 따른다.
+
+---
+
+## ADR-015 - Factory Activity는 Position Delta로 측정
+
+Status: Accepted
+
+Task ID나 work-state 이름만으로 실제 활동을 판정하지 않는다. World position이 update당
+0.01px보다 크게 변한 robot-time만 actual motion으로 집계하고 PICK/DROP service 및
+traffic/resource/flow wait를 별도로 기록한다. BUSY workload 편중은 기존 material-flow
+link 안에서 deterministic WIP balancing으로 완화하며 global fleet optimizer는 도입하지 않는다.

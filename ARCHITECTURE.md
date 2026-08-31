@@ -362,6 +362,19 @@ Engagement는 nonterminal assigned MaterialTask가 있는 경우에만 인정한
 Productive, factory task waiting, repositioning, true idle을 분리하고 10초 warm-up 이후
 minimum engaged와 maximum true idle을 측정한다.
 
+#### V5.3 Position-based Flow Control
+
+`ENGAGED`는 task ownership 진단으로만 남기고 성공 기준은 world-position delta로
+측정한다. Update당 0.01px를 초과한 실제 displacement만 `ACTUALLY_MOVING`이며,
+service, traffic wait, resource wait, flow hold, true idle을 상호 배타적으로 적분한다.
+Per-robot distance와 continuous stationary time도 같은 position sample에서 계산한다.
+
+BUSY/STRESS generator는 기존 두 flow의 여섯 link만 사용하면서 lifetime generated WIP를
+deterministic하게 균등화한다. Dispatch는 global optimization 없이 free source staging,
+active link WIP, source/destination queue pressure, priority, route cost 순으로 bounded
+선택한다. 각 Station의 staging은 세 개의 distinct safe LaneNode이며 service capacity는
+계속 1이다.
+
 ### 4.6 Fleet Manager
 
 Fleet Manager는 `Agent -> Task -> Route -> Traffic Permission`을 연결한다.

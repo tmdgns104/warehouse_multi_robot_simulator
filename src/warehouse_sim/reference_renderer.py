@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterable, Tuple
 
 from .facility_layout import FacilityLayout, NetworkSegment
+from .factory import PhysicalActivity
 from .lane_graph import LaneGraph
 from .motion import MotionEngine, MotionState
 from .render_plan import DrawCommand, Primitive, build_render_plan
@@ -114,23 +115,27 @@ def render_factory_with_pillow(layout: FacilityLayout, engine, output: Path, siz
     _draw_pillow_commands(draw, motion_render_plan(engine), sx, sy)
     _draw_pillow_commands(draw, factory_status_render_plan(engine), sx, sy)
     metrics = engine.factory_metrics
+    activity_counts = {activity: sum(value == activity for value in engine.activity_states.values())
+                       for activity in PhysicalActivity}
     lines = (
-        "V5.2 FACTORY FLOW",
-        f"QUEUE       {metrics.tasks_queued}",
-        f"ACTIVE      {metrics.tasks_active}",
+        "V5.3 ACTUAL FACTORY FLOW",
+        f"MOVE {activity_counts[PhysicalActivity.ACTUALLY_MOVING]:2d}  SERVICE {activity_counts[PhysicalActivity.SERVICING]:2d}",
+        f"TRAFFIC WAIT {activity_counts[PhysicalActivity.TRAFFIC_WAIT]:2d}",
+        f"RESOURCE WAIT {activity_counts[PhysicalActivity.RESOURCE_WAIT]:2d}",
+        f"HOLD {activity_counts[PhysicalActivity.HOLDING]:2d}  IDLE {activity_counts[PhysicalActivity.TRUE_IDLE]:2d}",
+        f"ACTUAL MOVE {metrics.actual_motion_ratio * 100:4.1f}%",
+        f"USEFUL      {metrics.useful_activity_ratio * 100:4.1f}%",
+        f"HOLD        {metrics.holding_ratio * 100:4.1f}%",
         f"COMPLETED   {metrics.tasks_completed}",
-        f"PRODUCTIVE  {metrics.productive_utilization * 100:4.1f}%",
-        f"TASK WAIT   {metrics.task_waiting_ratio * 100:4.1f}%",
-        f"ENGAGED     {metrics.engaged_ratio * 100:4.1f}%",
-        f"TRUE IDLE   {metrics.true_idle_robot_count}",
-        f"LOADS MOVE  {metrics.loads_in_transit}",
     )
     for index, line in enumerate(lines):
         draw.text((995, 74 + index * 18), line, fill=(35, 35, 35))
     robot_y = 250
     for entity in engine.entities[:16]:
         task_id = engine.robot_tasks[entity.id] or "-"
-        text = f"{entity.id} {engine.work_states[entity.id].value:<10} {task_id}"
+        text = f"{entity.id} {engine.activity_states[entity.id].value:<12} {task_id}"
+        if debug and engine.continuous_stationary_time[entity.id] >= 1.0:
+            text += f" STILL {engine.continuous_stationary_time[entity.id]:.1f}s"
         draw.text((995, robot_y), text, fill=(45, 45, 45))
         robot_y += 16
     if debug:
@@ -179,7 +184,7 @@ class ReferenceLayoutUI:
         self.size = size
         self.screen = pygame.display.set_mode(size, pygame.RESIZABLE)
         pygame.display.set_caption(
-            "Warehouse Multi-Robot Factory - V5.2" if engine is not None and hasattr(engine, "factory_metrics")
+            "Warehouse Multi-Robot Factory - V5.3" if engine is not None and hasattr(engine, "factory_metrics")
             else "Warehouse Multi-Robot Traffic - V4"
         )
         self.clock = pygame.time.Clock()
@@ -273,16 +278,20 @@ class ReferenceLayoutUI:
         if self.engine is not None and hasattr(self.engine, "factory_metrics"):
             font = pygame.font.SysFont("consolas", max(9, round(12 * scale)))
             metrics = self.engine.factory_metrics
+            activity_counts = {
+                activity: sum(value == activity for value in self.engine.activity_states.values())
+                for activity in PhysicalActivity
+            }
             panel_lines = (
-                "V5.2 FACTORY FLOW",
-                f"QUEUE       {metrics.tasks_queued}",
-                f"ACTIVE      {metrics.tasks_active}",
+                "V5.3 ACTUAL FACTORY FLOW",
+                f"MOVE {activity_counts[PhysicalActivity.ACTUALLY_MOVING]:2d}  SERVICE {activity_counts[PhysicalActivity.SERVICING]:2d}",
+                f"TRAFFIC WAIT {activity_counts[PhysicalActivity.TRAFFIC_WAIT]:2d}",
+                f"RESOURCE WAIT {activity_counts[PhysicalActivity.RESOURCE_WAIT]:2d}",
+                f"HOLD {activity_counts[PhysicalActivity.HOLDING]:2d}  IDLE {activity_counts[PhysicalActivity.TRUE_IDLE]:2d}",
+                f"ACTUAL MOVE {metrics.actual_motion_ratio * 100:4.1f}%",
+                f"USEFUL      {metrics.useful_activity_ratio * 100:4.1f}%",
+                f"HOLD        {metrics.holding_ratio * 100:4.1f}%",
                 f"COMPLETED   {metrics.tasks_completed}",
-                f"PRODUCTIVE  {metrics.productive_utilization * 100:4.1f}%",
-                f"TASK WAIT   {metrics.task_waiting_ratio * 100:4.1f}%",
-                f"ENGAGED     {metrics.engaged_ratio * 100:4.1f}%",
-                f"TRUE IDLE   {metrics.true_idle_robot_count}",
-                f"LOADS MOVE  {metrics.loads_in_transit}",
             )
             panel_x = round(ox + 990 * scale)
             panel_y = round(oy + 72 * scale)
@@ -292,7 +301,9 @@ class ReferenceLayoutUI:
             robot_y = panel_y + max(160, round(180 * scale))
             for entity in self.engine.entities[:16]:
                 task_id = self.engine.robot_tasks[entity.id] or "-"
-                line = f"{entity.id} {self.engine.work_states[entity.id].value:<10} {task_id}"
+                line = f"{entity.id} {self.engine.activity_states[entity.id].value:<12} {task_id}"
+                if self.show_topology_debug and self.engine.continuous_stationary_time[entity.id] >= 1.0:
+                    line += f" STILL {self.engine.continuous_stationary_time[entity.id]:.1f}s"
                 label = font.render(line, True, (45, 45, 45))
                 self.screen.blit(label, (panel_x, robot_y))
                 robot_y += max(12, round(16 * scale))

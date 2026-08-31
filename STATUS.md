@@ -2,9 +2,9 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V5.2
-Current Phase: TASK-009B Implemented / Automated PASS / Human Full Fleet Engagement Verification Required
-Current Task: TASK-009B - Staging Queue & Late Station Reservation
+Current Version: V5.3
+Current Phase: TASK-009C Implemented / Automated Verification Pass / Human Actual Fleet Motion Verification Required
+Current Task: TASK-009C - Actual Fleet Motion & Continuous Factory Flow
 
 ## Final Goal
 
@@ -381,3 +381,32 @@ TASK-009B는 task assignment와 physical service capacity를 분리해 이 gate�
 Cycle time 96.642 seconds는 남은 physical contention을 보여준다.
 
 TASK-009B IMPLEMENTED / AUTOMATED PASS / HUMAN FULL FLEET ENGAGEMENT VERIFICATION REQUIRED. TASK-010은 시작하지 않았다.
+
+## TASK-009C Result
+
+V5.2의 `ENGAGED=100%`는 task ownership만 증명했다. 새 position 계측 baseline은
+actual motion 0.8036이었지만 stationary holding 0.0861, 최대 연속 정지 44.917초,
+long holding event 31건을 확인했다. Random link 생성과 priority-only dispatch로
+Flow A 후단 두 link에 active task 12개가 편중된 것이 주 원인이었다.
+
+- 0.01px actual position delta 기반 physical activity instrumentation
+- movement/service/traffic wait/resource wait/flow hold/true idle 분리
+- per-robot distance/stationary time, station queue, flow-link WIP 진단
+- BUSY/STRESS real flow link deterministic balancing
+- free staging, active-link WIP, station pressure 기반 bounded dispatch
+- Station당 obstacle-safe staging 2개에서 3개로 확장; service capacity 1 유지
+- V5.3 physical activity panel과 debug STILL 표시
+- Full regression: 89 PASS
+
+16 robots / 300 seconds / seed 1234 / busy:
+
+- completed checkpoints: 33 / 76 / 116
+- actual motion / service / useful: 0.8150 / 0.1007 / 0.9157
+- traffic wait / resource wait / holding: 0.0172 / 0.0651 / 0.0020
+- average moving / holding robots: 13.041 / 0.033
+- cycle time: 60.287 seconds
+- true idle/collision/head-on/deadlock/obstacle penetration: 0
+
+24 robots completed 127 tasks; actual motion 0.7381, holding 0.0292, safety 0.
+
+TASK-009C IMPLEMENTED / AUTOMATED VERIFICATION PASS / HUMAN ACTUAL FLEET MOTION VERIFICATION REQUIRED. TASK-010은 시작하지 않았다.
