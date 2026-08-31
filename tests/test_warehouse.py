@@ -84,12 +84,32 @@ def test_box_and_robot_views_are_exact_domain_projections():
     expected=sum(l.occupied for l in (*e.receiving.values(),*e.storage.values(),*e.staging.values()))
     assert len(boxes)==expected
     assert all(box.item_id in (e.receiving.get(box.location) or e.storage.get(box.location) or e.staging.get(box.location)).contents for box in boxes)
-    assert all(v.mission in {None,"PUT","PICK"} for v in warehouse_robot_views(e))
+    assert all(v.mission in {None,"PUTAWAY","PICKING"} for v in warehouse_robot_views(e))
+
+def test_work_label_precedes_deterministic_human_phase_and_idle_is_available():
+    e=create_reference_warehouse_scenario(8).engine;advance(e,20)
+    views=warehouse_robot_views(e)
+    assert any(v.mission=="PUTAWAY" and v.phase in {"TO PICKUP","PICKING ITEM","CARRYING","DROPPING ITEM","TRAFFIC WAIT","RESOURCE WAIT","HOLD"} for v in views)
+    assert all(v.phase=="AVAILABLE" for v in views if v.mission is None)
+
+def test_selected_warehouse_robot_projection_uses_actual_remaining_route():
+    e=create_reference_warehouse_scenario(8).engine;advance(e,20)
+    view=next(v for v in warehouse_robot_views(e) if v.mission)
+    entity=next(x for x in e.entities if x.id==view.robot_id)
+    assert view.route_node_ids==tuple(entity.route[entity.route_index:])
+    assert view.item_id and view.sku and view.lot_id and view.order_id
+
+def test_shipped_item_is_absent_from_every_box_projection():
+    e=create_reference_warehouse_scenario(16).engine;advance(e,300,1/60)
+    shipped={i.id for i in e.items.values() if i.state==InventoryState.SHIPPED}
+    assert shipped and shipped.isdisjoint({box.item_id for box in warehouse_box_views(e)})
 
 def test_renderer_does_not_mutate_inventory_state(tmp_path:Path):
     s=create_reference_warehouse_scenario(8);advance(s.engine,80)
     before=(s.engine.elapsed_time,s.engine.warehouse_metrics,tuple((i.id,i.state,i.current_location) for i in s.engine.items.values()))
     render_warehouse_with_pillow(s.layout,s.engine,tmp_path/"w.png",debug=True)
+    active=next(v.robot_id for v in warehouse_robot_views(s.engine) if v.mission)
+    render_warehouse_with_pillow(s.layout,s.engine,tmp_path/"selected.png",selected_robot_id=active)
     after=(s.engine.elapsed_time,s.engine.warehouse_metrics,tuple((i.id,i.state,i.current_location) for i in s.engine.items.values()))
     assert before==after and (tmp_path/"w.png").stat().st_size>0
 

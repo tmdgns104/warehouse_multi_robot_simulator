@@ -2,13 +2,29 @@
 
 Project: Warehouse Multi-Robot Simulator
 
-Current Version: V5.6
-Current Phase: TASK-009F Implemented / Automated Verification Pass / Human Warehouse Lifecycle Verification Required
-Current Task: TASK-009F - Warehouse Inventory Lifecycle
+Current Version: V5.6.1
+Current Phase: TASK-009F-A Implemented / Automated Verification Pass / Human Visual Flow Verification Required
+Current Task: TASK-009F-A - Warehouse Visual Flow & Operational Explainability Upgrade
 
 ## Final Goal
 
 Reference 영상의 2D 자동화 시스템을 단계적으로 재현한 뒤 ROS2 Humble + Gazebo Fortress + Nav2 기반 Multi-AMR Warehouse Digital Twin으로 발전시킨다.
+
+## TASK-009F-A Result
+
+Warehouse domain/timing을 변경하지 않고 화면 정보 우선순위를 Robot physical state에서 실제
+material flow로 전환했다.
+
+- 좌측 Receiving, 중앙 Storage/Rack, 우측 Outbound/Shipping의 큰 시각 zone
+- 10개 logical location의 독립 card, occupancy/capacity와 actual box grid
+- 같은 service station을 공유하는 logical rack도 겹치지 않는 display anchor 사용
+- Robot row: Work(PUTAWAY/PICKING) → Phase → Item → From/To 순서
+- human phase: TO PICKUP, PICKING ITEM, CARRYING, DROPPING ITEM, TRAFFIC/RESOURCE WAIT, HOLD, AVAILABLE
+- Warehouse Robot click selection, actual remaining route, Item/SKU/Lot/Order/Cargo detail
+- Shipping된 Item은 actual location contents에서 제거되므로 화면에서도 사라짐
+- Warehouse business 300초 결과와 safety 결과는 V5.6 baseline 유지
+
+Human visual verification 전 COMPLETE가 아니다. TASK-009G/V5.7 및 TASK-010/V6는 미시작이다.
 
 ## TASK-009F Result
 

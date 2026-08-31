@@ -232,6 +232,18 @@ python3 app.py --render-warehouse-debug evidence/v5_6_warehouse_debug.png --moti
 B05, C12 같은 box label은 SKU와 item suffix를 나타냅니다. Production Demo는 기존
 `python3 app.py --production-demo`로 그대로 실행됩니다.
 
+### V5.6.1 Visual Flow
+
+Warehouse 기본 화면은 좌측 Receiving, 중앙 Storage/Rack, 우측 Outbound/Shipping zone으로
+구분됩니다. 각 card의 Box와 occupancy는 실제 Domain contents이며, Robot row는 MOVING보다
+`PUTAWAY` 또는 `PICKING`을 먼저 표시합니다. Robot을 클릭하면 Work, Phase, Item/SKU/Lot,
+From/To, Order, Cargo와 실제 remaining route를 확인할 수 있습니다.
+
+```bash
+python3 app.py --warehouse-demo
+python3 app.py --render-warehouse-selected evidence/v5_6_1_robot_work_explainability.png --selected-robot M02 --motion-time 220
+```
+
 ```bash
 python3 app.py --headless-factory 300 --entities 16 --seed 1234 --factory-profile busy
 python3 app.py --render-factory evidence/v5_3_actual_fleet_motion.png --motion-time 120

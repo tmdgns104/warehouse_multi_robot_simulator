@@ -1,0 +1,41 @@
+V5.6.1 WAREHOUSE VISUAL FLOW
+============================
+
+Scenario: 16 Robots, seed 1234, 300 simulated seconds
+Source: actual InventoryItem/location/MaterialLoad state; no fake boxes or missions
+
+20 seconds - Receiving and Putaway
+----------------------------------
+- 4 items arrived in RECV_A.
+- 2 boxes remain visibly stacked in the RECV_A card while 2 are already in Robot custody.
+- Four active Robot rows lead with PUTAWAY and show TO PICKUP, CARRYING or DROPPING ITEM.
+- Storage cards remain at 0/4 until actual drop completes.
+
+120 seconds - Storage accumulation and mixed flow
+-------------------------------------------------
+- 12 items have arrived and 7 Putaway requests completed.
+- RACK-A01/A02 and RACK-B01 contain actual A/B/C-labeled boxes.
+- Rack cards show independent contents and occupancy/capacity.
+- A Picking mission is active while Putaway missions continue.
+- OUT_STAGE_A contains one actual staged box.
+
+220 seconds - Picking, staging and shipping
+--------------------------------------------
+- 18 items arrived, 14 Putaway requests completed.
+- PUTAWAY and PICKING are simultaneously visible as primary Robot work labels.
+- Storage boxes have been removed only when their Picking Robot actually picked them up.
+- OUT_STAGE_B contains two actual staged boxes.
+- SO-001 has shipped; its two shipped items are absent from every location and from the screen.
+
+Selected Robot evidence
+-----------------------
+- M02 is shown as WORK=PICKING, PHASE=CARRYING, ITEM-004, SKU-A, LOT-A-004.
+- Its actual remaining LaneGraph route is highlighted in blue.
+- FROM=RACK-A01, TO=OUT_STAGE_A, ORDER=SO-003 and CARGO=YES all come from the
+  current WarehouseRequest, InventoryItem and MaterialLoad ownership.
+
+300-second regression
+---------------------
+- V5.6 business result remains: 18 arrived, 16 put away, 3 orders created,
+  1 order shipped, 2 items shipped, inventory integrity errors 0.
+- collision/head-on/deadlock/obstacle penetration: 0/0/0/0.

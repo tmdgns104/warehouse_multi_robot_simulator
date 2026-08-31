@@ -581,6 +581,16 @@ layer는 Robot/battery를 직접 다루지 않으므로 향후 V5.7 Charge servi
 Storage는 기존 obstacle-safe Station에 연결된 logical overlay이며 physical obstacle geometry와
 SafeLaneGraph를 변경하지 않는다.
 
+## V5.6.1 Warehouse Visual Projection
+
+`warehouse_view.py`는 internal Robot state를 수정하지 않고 Work, human-readable Phase,
+Condition, actual cargo와 remaining route로 번역한다. `reference_renderer.py`는 실제 location
+contents를 Receiving/Storage/Outbound zone의 box cards로 투영한다.
+
+Logical display anchor는 시각적 grouping일 뿐 service node나 obstacle이 아니다. Robot route는
+계속 기존 SafeLaneGraph service node를 사용한다. 따라서 material-flow UI 개선이 traffic이나
+inventory timing에 영향을 주지 않는다.
+
 ### Testing Strategy
 
 ### V2~V7

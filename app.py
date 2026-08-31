@@ -49,6 +49,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--headless-warehouse",type=float,metavar="SECONDS",help="run the V5.6 warehouse lifecycle without pygame")
     parser.add_argument("--render-warehouse",type=Path,metavar="PNG",help="render a V5.6 warehouse snapshot")
     parser.add_argument("--render-warehouse-debug",type=Path,metavar="PNG",help="render V5.6 locations and recent events")
+    parser.add_argument("--render-warehouse-selected",type=Path,metavar="PNG",help="render V5.6.1 selected Warehouse Robot detail")
     parser.add_argument(
         "--render-production",
         type=Path,
@@ -157,7 +158,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if args.headless_warehouse is not None or args.render_warehouse is not None or args.render_warehouse_debug is not None:
+    if args.headless_warehouse is not None or args.render_warehouse is not None or args.render_warehouse_debug is not None or args.render_warehouse_selected is not None:
         from warehouse_sim.reference_warehouse_scenario import create_reference_warehouse_scenario
         duration=args.headless_warehouse if args.headless_warehouse is not None else args.motion_time
         if duration<0: raise SystemExit("warehouse duration must be zero or greater")
@@ -167,10 +168,11 @@ def main() -> int:
             delta=min(1/60,remaining);scenario.engine.update(delta);scenario.engine.validate_safety();remaining-=delta
         w=scenario.engine.warehouse_metrics;f=scenario.engine.factory_metrics;t=scenario.engine.factory.traffic.metrics
         print(f"entities={len(scenario.engine.entities)} simulated_seconds={duration:.3f} inbound_arrived={w.inbound_items_arrived} putaway_completed={w.putaway_completed} average_putaway={w.average_putaway_time:.3f} inventory={w.inventory_total}/{w.inventory_capacity} outbound_created={w.outbound_orders_created} outbound_shipped={w.outbound_orders_shipped} items_shipped={w.outbound_items_shipped} order_cycle={w.average_order_cycle_time:.3f} backordered={w.backordered_items} staging={w.outbound_staging_count} integrity_errors={w.inventory_integrity_errors} actual_motion_ratio={f.actual_motion_ratio:.4f} true_idle_ratio={f.true_idle_ratio:.4f} collision_count=0 head_on_conflicts={t.head_on_conflict_count} deadlocks={t.deadlock_count} obstacle_penetrations={t.obstacle_penetration_count}")
-        if args.render_warehouse is not None or args.render_warehouse_debug is not None:
+        if args.render_warehouse is not None or args.render_warehouse_debug is not None or args.render_warehouse_selected is not None:
             from warehouse_sim.reference_renderer import render_warehouse_with_pillow
-            output=args.render_warehouse or args.render_warehouse_debug
-            render_warehouse_with_pillow(scenario.layout,scenario.engine,output,debug=args.render_warehouse_debug is not None)
+            output=args.render_warehouse or args.render_warehouse_debug or args.render_warehouse_selected
+            render_warehouse_with_pillow(scenario.layout,scenario.engine,output,debug=args.render_warehouse_debug is not None,
+                                         selected_robot_id=args.selected_robot if args.render_warehouse_selected is not None else None)
             print(f"warehouse snapshot rendered: {output} time={duration:.3f}s")
         return 0
     if (args.headless_production is not None or args.render_production is not None
